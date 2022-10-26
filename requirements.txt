@@ -1,0 +1,5 @@
+numpy==1.19.2
+jax==0.3.23
+jaxlib==0.3.22
+timm==0.6.11
+matplotlib==3.5.3
