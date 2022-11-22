@@ -34,7 +34,7 @@ class MAEViT(nn.Module):
         
         # DECODER
         self.decoder_embedding = nn.Linear(self.embed_dim, self.decoder_embed_dim, use_bias=True)
-        self.mask_token = jnp.zeros((1, 1, self.cls_tokendecoder_embed_dim))
+        self.mask_token = jnp.zeros((1, 1, self.decoder_embed_dim))
         self.decoder_position_embedding = jnp.zeros((1, nb_patches+1, self.decoder_embed_dim), requires_grad=False)
         self.decoder_blocks = objax.ModuleList([Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer) for i in range(self.decoder_depth)])
         self.decoder_norm_layer = self.norm_layer(self.decoder_embed_dim)
@@ -92,7 +92,7 @@ class MAEViT(nn.Module):
         x, mask, ids_restore = self.random_masking(x, mask_ratio, keys)
         
         cls_token = self.cls_token + self.position_embedding[:, 1:, :]
-        cls_tokens = cls_token.expand(x.shape[0], -1, -1) #TODO
+        cls_tokens = jnp.tile(cls_token, (x.shape[0], 1, 1))
         x = jnp.concatenate([cls_tokens, x], axis=1)
         
         # apply the transformer
@@ -102,13 +102,14 @@ class MAEViT(nn.Module):
         
         return x, mask, ids_restore
     
-    def decoder(self, x, ids_restore): #TODO
+    def decoder(self, x, ids_restore):
         x = self.decoder_embedding(x)
 
         # append mask tokens to sequence
-        mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
+        mask_tokens = jnp.tile(self.mask_token, (x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1))
         x_ = jnp.concatenate([x[:, 1:, :], mask_tokens], axis=1)  # no cls token
-        x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle #TODO
+        reshaped_ids = jnp.tile(ids_restore.reshape(ids_restore.shape[0], ids_restore.shape[1], -1), (1, 1, x.shape[2]))
+        x_ = jnp.take_along_axis(x_, reshaped_ids, axis=1)  # unshuffle
         x = jnp.concatenate([x[:, :1, :], x_], axis=1)  # append cls token
 
         # add pos embed
