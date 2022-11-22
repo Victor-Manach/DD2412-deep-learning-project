@@ -54,9 +54,9 @@ class TrainModule:
             images = images.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
             
-        #predictions = images
-        #targets = target
-        l2_loss = optax.l2_loss(images, target)
+        output = model(images)
+        targets = self.decoder_prediction(x)
+        l2_loss = optax.l2_loss(output, targets)
         mse_loss = jnp.mean(l2_loss)
         return mse_loss
 
