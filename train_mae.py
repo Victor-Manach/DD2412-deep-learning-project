@@ -42,12 +42,23 @@ class TrainModule:
     def batch_to_input(self, exmp_batch):
         # Map batch to input data to the model
         # To be implemented in a task specific sub-class
+        
         raise NotImplementedError
 
     def get_loss_function(self):
-        # Return a function that calculates the loss for a batch
+        # Return a function that calculates the MSE loss for a batch, only calculated on masked batches
         # To be implemented in a task specific sub-class
-        raise NotImplementedError
+        for batch in metric_logger.log_every(data_loader, 10, header):
+            images = batch[0]
+            target = batch[-1]
+            images = images.to(device, non_blocking=True)
+            target = target.to(device, non_blocking=True)
+            
+        #predictions = images
+        #targets = target
+        l2_loss = optax.l2_loss(images, target)
+        mse_loss = jnp.mean(l2_loss)
+        return mse_loss
 
     def create_functions(self):
         # Create jitted train and eval functions
