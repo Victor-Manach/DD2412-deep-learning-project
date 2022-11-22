@@ -1,10 +1,14 @@
 import math
 import sys
 from typing import Iterable, Optional
+import jax
 
 import flax.core
-import flax.linen as nn
-import jax
+import flax.linen as fnn
+import objax
+import objax.nn as nn
+import jax.numpy as jnp
+from utils import Identity
 
 from timm.data import Mixup
 from timm.utils import accuracy
@@ -13,7 +17,7 @@ import util.misc as misc
 import util.lr_sched as lr_sched
 
 
-def train_one_epoch(model: nn.Module, criterion: nn.Module,  #from torch.nn.Module
+def train_one_epoch(model: fnn.Module, criterion: fnn.Module,  #from torch.nn.Module
                     data_loader: Iterable, optimizer: jax.example_libraries.optimizers.Optimizer, #from torch.optim.Optimizer
                     device: jax.devices, epoch: int, loss_scaler, max_norm: float = 0,  #from torch.device
                     mixup_fn: Optional[Mixup] = None, log_writer=None,
