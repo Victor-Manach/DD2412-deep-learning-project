@@ -47,33 +47,37 @@ class MAEViT(nn.Module):
         decoder_pos_embed = position_embedding(self.patch_embed.nb_patches, self.decoder_embed_dim)
         self.decoder_position_embedding = jnp.array(decoder_pos_embed, requires_grad=False)
     
-    def create_patches(self, x): #TODO: Apply the function on one image and use jax.vmap on the first axes to extend the function to a batch
+    @partial(jax.vmap, in_axes=(None, 0), out_axes=0)
+    def create_patches(self, x):
         """
-        Given a batch of images, create the patches for all the images
+        Given an image, create a list of patches for that image
+        Use jax.vmap to extend the function to a batch of images
         """
-        def create_patches_im(img) : 
-            n, m = img.shape
-            patched_img = img.reshape(n//self.patch_size,m//self.patch_size, self.patch_size)
-            return patched_img
-            
-        patched_batch = jax.vmap(create_patches_im)(x)
-        return patched_batch
+        p = self.patch_embed.patch_size[0]
+        h = w = x.shape[1] // p
+        x_patches = x.reshape((3, h, p, w, p))
+        x_patches = jnp.einsum("chpwq->hwpqc", x_patches)
+        x_patches = x.reshape((h * w, p**2 * 3))
         
-    def recreate_images(self, x): #TODO: Apply the function on one list of patches and use jax.vmap on the first axes to extend the function to a batch
-        """
-        Given a batch of patches, recreate the corresponding images
-        """
-        b, n, p = x.shape # batch_size, number of patches, patch size 
-        def recreate_image(patches):
-            n, p = patches.shape
-            img = patches.reshape(self.img_size, self.img_size, p)
-            
-        recreated_images = jax.vmap(recreate_image)(x)
-        return recreated_images
+        return x_patches
     
-    @partial(jax.vmap, in_axes=(0, None, 0), out_axes=0)
-    @partial(jax.jit, static_argnames=["mask_ratio"])
-    def random_masking(self, x, mask_ratio, keys):
+    @partial(jax.vmap, in_axes=(None, 0), out_axes=0)
+    def recreate_images(self, x):
+        """
+        Given a list of patches, recreate the corresponding image
+        Use jax.vmap to extend the function to a batch of list of patches
+        """
+        p = self.patch_embed.patch_size[0]
+        h = w = int(x.shape[0]**.5)
+        
+        x = x.reshape((h, w, p, p, 3))
+        x = jnp.einsum('hwpqc->chpwq', x)
+        imgs = x.reshape((3, h * p, h * p))
+        
+        return imgs
+    
+    @partial(jax.vmap, in_axes=(None, 0, None, 0), out_axes=0)
+    def batched_random_masking(self, x, mask_ratio, keys):
         """
         Perform a random masking on the embeddings of the patches
         x: (batch size, number of patches, embedding dimension)
@@ -96,7 +100,7 @@ class MAEViT(nn.Module):
         
         return x_masked, mask, ids_restore
     
-    def encoder(self, x, mask_ratio, keys): #TODO
+    def encoder(self, x, mask_ratio, keys):
         x = self.patch_embed(x)
         
         x ++ self.position_embedding[:, 1:, :]
@@ -142,8 +146,8 @@ class MAEViT(nn.Module):
     
     def loss_fn(self, x, y, mask):
         """
-        imgs: [N, 3, H, W]
-        pred: [N, L, p*p*3]
+        x: [N, 3, H, W]
+        y: [N, L, p*p*3]
         mask: [N, L], 0 is keep, 1 is remove, 
         """
         target = self.patchify(x)
