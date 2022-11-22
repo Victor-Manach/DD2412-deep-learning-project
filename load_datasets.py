@@ -1,10 +1,9 @@
 import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-
 import tensorflow as tf
-tf.get_logger().setLevel("WARNING")
-
 import tensorflow_datasets as tfds
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
+tf.get_logger().setLevel("WARNING")
 
 def resize(image, label):
     image = tf.image.resize_with_pad(image, 224, 224)
