@@ -51,12 +51,12 @@ class MAEViT(nn.Module):
         """
         Given a batch of images, create the patches for all the images
         """
-        def create_patches_im(self, im) : 
+        def create_patches_im(im) : 
             n,m = im.shape
             patched_im = im.reshape(n//patch_size,m//patch_size, patch_size)
             return patched_im
             
-        patched_batch = vmap(create_patches_im)(self, x)
+        patched_batch = vmap(create_patches_im)(x)
         return patched_batch
         
         
@@ -66,11 +66,11 @@ class MAEViT(nn.Module):
         Given a batch of patches, recreate the corresponding images
         """
         b, n, p = x.shape # batch_size, number of patches, patch size 
-        def recreate_image(self, patches):
+        def recreate_image(patches):
             n,p = patches.shape
             im = patches.reshape(img_size,img_size,p)
             
-        recreated_images = vmap(recreate_image)(self,patches)
+        recreated_images = vmap(recreate_image)(patches)
         return recreated_images
     
     @partial(jax.vmap, in_axes=(0, None, 0), out_axes=0)
