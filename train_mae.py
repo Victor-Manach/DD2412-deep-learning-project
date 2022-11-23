@@ -42,23 +42,40 @@ class TrainModule:
     def batch_to_input(self, exmp_batch):
         # Map batch to input data to the model
         # To be implemented in a task specific sub-class
-        
-        raise NotImplementedError
+        inp_data, _, _ = batch
+        return inp_data
 
     def get_loss_function(self):
-        # Return a function that calculates the MSE loss for a batch, only calculated on masked batches
+        # Return a function that calculates the MSE loss for a batch, only calculated on masked patches
         # To be implemented in a task specific sub-class
-        for batch in metric_logger.log_every(data_loader, 10, header):
-            images = batch[0]
-            target = batch[-1]
-            images = images.to(device, non_blocking=True)
-            target = target.to(device, non_blocking=True)
+        """
+        mse_loss = []
+        for img in batch:
+            target = self.patchify(img)
+            if self.norm_pix_loss:
+                mean = target.mean(dim=-1, keepdim=True)
+                var = target.var(dim=-1, keepdim=True)
+                target = (target - mean) / (var + 1.e-6)**.5
             
-        output = model(images)
-        targets = self.decoder_prediction(x)
-        l2_loss = optax.l2_loss(output, targets)
-        mse_loss = jnp.mean(l2_loss)
-        return mse_loss
+            l2_loss = optax.l2_loss(model.preds(img), target)
+            mse_loss.append(jnp.mean(l2_loss))
+            
+        batch_loss = jnp.mean(mse_loss)
+        return batch_loss
+        """
+        target = self.patchify(x)
+        if self.norm_pix_loss:
+            mean = target.mean(dim=-1, keepdim=True)
+            var = target.var(dim=-1, keepdim=True)
+            target = (target - mean) / (var + 1.e-6)**.5
+        
+        z, mask, ids_restore = self.encoder(x, mask_ratio)
+        preds = self.decoder(z, ids_restore)
+        
+        loss = (preds - target) ** 2
+        loss = loss.mean(dim=-1)  # [N, L], mean loss per patch
+        loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
+        return loss
 
     def create_functions(self):
         # Create jitted train and eval functions
@@ -118,8 +135,8 @@ class TrainModule:
             self.state, self.rng, loss, accuracy = self.train_step(self.state, self.rng, batch)
             losses.append(loss)
             accs.append(accuracy)
-        avg_loss = np.stack(jax.device_get(losses)).mean()
-        avg_acc = np.stack(jax.device_get(accs)).mean()
+        avg_loss = jnp.stack(jax.device_get(losses)).mean()
+        avg_acc = jnp.stack(jax.device_get(accs)).mean()
 
     def eval_model(self, data_loader):
         # Test model on all data points of a data loader and return avg accuracy
