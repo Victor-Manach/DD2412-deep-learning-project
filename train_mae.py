@@ -5,144 +5,110 @@ import jax.numpy as jnp
 import optax
 import flax
 from flax.training import train_state, checkpoints
-import flax.linen as fnn
+import flax.linen as nn
 from tqdm.auto import tqdm
 
-from mae import MAEViT
+from mae import MAEViT, mae_loss
 
 # Path to the folder where the pretrained models are saved
 CHECKPOINT_PATH = "./saved_models/"
 
 class TrainModule:
-    def __init__(self, model_name, exmp_batch, max_iters, lr=1e-3, warmup=100, seed=42):
-        """
-        Inputs:
-            model_name - Name of the model. Used for saving and checkpointing
-            exmp_batch - Example batch to the model for initialization
-            max_iters - Number of maximum iterations the model is trained for. This is needed for the CosineWarmup scheduler
-            lr - Learning rate in the optimizer
-            warmup - Number of warmup steps. Usually between 50 and 500
-            seed - Seed to use for model init
-        """
+    def __init__(self, train, exmp_imgs, dataset_name, seed=42, lr=1e-3):
         super().__init__()
-        self.model_name = model_name
-        self.max_iters = max_iters
         self.lr = lr
-        self.warmup = warmup
         self.seed = seed
         # Create empty model. Note: no parameters yet
         self.model = MAEViT()
         # Prepare logging
-        self.log_dir = os.path.join(CHECKPOINT_PATH, self.model_name)
+        self.exmp_imgs = exmp_imgs
+        self.log_dir = os.path.join(CHECKPOINT_PATH, dataset_name)
+        self.dataset_name = dataset_name
         # Create jitted training and eval functions
         self.create_functions()
         # Initialize model
-        self.init_model(exmp_batch)
-
-    def batch_to_input(self, exmp_batch):
-        # Map batch to input data to the model
-        # To be implemented in a task specific sub-class
-        
-        raise NotImplementedError
-
-    def get_loss_function(self):
-        # Return a function that calculates the MSE loss for a batch, only calculated on masked batches
-        # To be implemented in a task specific sub-class
-        for batch in metric_logger.log_every(data_loader, 10, header):
-            images = batch[0]
-            target = batch[-1]
-            images = images.to(device, non_blocking=True)
-            target = target.to(device, non_blocking=True)
-            
-        output = model(images)
-        targets = self.decoder_prediction(x)
-        l2_loss = optax.l2_loss(output, targets)
-        mse_loss = jnp.mean(l2_loss)
-        return mse_loss
+        init_key = jax.random.PRNGKey(self.seed)
+        self.init_model(train, init_key)
 
     def create_functions(self):
-        # Create jitted train and eval functions
-        calculate_loss = self.get_loss_function()
-
         # Training function
-        def train_step(state, rng, batch):
-            loss_fn = lambda params: calculate_loss(params, rng, batch, train=True)
-            ret, grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
-            loss, acc, rng = ret[0], *ret[1]
-            state = state.apply_gradients(grads=grads)
-            return state, rng, loss, acc
+        def train_step(state, batch, key):
+            loss_fn = lambda params: mae_loss(model=self.model, params=params, x=batch, train=True, key=key)
+            loss, grads = jax.value_and_grad(loss_fn)(state.params)  # Get loss and gradients for loss
+            state = state.apply_gradients(grads=grads)  # Optimizer update step
+            return state, loss
         self.train_step = jax.jit(train_step)
-
-        # Evaluation function
-        def eval_step(state, rng, batch):
-            _, (acc, rng) = calculate_loss(state.params, rng, batch, train=False)
-            return acc, rng
+        # Eval function
+        def eval_step(state, batch, key):
+            return mae_loss(model=self.model, params=state.params, x=batch, train=False, key=key)
         self.eval_step = jax.jit(eval_step)
 
-    def init_model(self, exmp_batch):
+    def init_model(self, train_data, key):
         # Initialize model
-        self.rng = jax.random.PRNGKey(self.seed)
-        self.rng, init_rng, dropout_init_rng = jax.random.split(self.rng, 3)
-        exmp_input = self.batch_to_input(exmp_batch)
-        params = self.model.init({'params': init_rng, 'dropout': dropout_init_rng}, exmp_input, train=True)['params']
+        init_key, rng_key, dropout_init_key = jax.random.split(key, 3)
+        params = self.model.init({"params": init_key, "dropout": dropout_init_key}, x=self.exmp_imgs, train=True, key=rng_key)["params"]
         # Initialize learning rate schedule and optimizer
         lr_schedule = optax.warmup_cosine_decay_schedule(
             init_value=0.0,
-            peak_value=self.lr,
-            warmup_steps=self.warmup,
-            decay_steps=self.max_iters,
-            end_value=0.0
+            peak_value=1e-3,
+            warmup_steps=100,
+            decay_steps=500*len(train_data),
+            end_value=1e-5
         )
         optimizer = optax.chain(
-            optax.clip_by_global_norm(1.0),  # Clip gradients at norm 1
+            optax.clip(1.0),  # Clip gradients at 1
             optax.adam(lr_schedule)
         )
         # Initialize training state
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=params, tx=optimizer)
 
-    def train_model(self, train_loader, val_loader, num_epochs=500):
+    def train_model(self, train_data, val_data, key, num_epochs=500):
         # Train model for defined number of epochs
-        best_acc = 0.0
+        best_eval = 1e6
         for epoch_idx in tqdm(range(1, num_epochs+1)):
-            self.train_epoch(train_loader, epoch=epoch_idx)
-            if epoch_idx % 5 == 0:
-                eval_acc = self.eval_model(val_loader)
-                if eval_acc >= best_acc:
-                    best_acc = eval_acc
+            self.train_epoch(train_data=train_data, epoch=epoch_idx, key=key)
+            if epoch_idx % 10 == 0:
+                eval_loss = self.eval_model(val_data)
+                print(f"Epoch {epoch_idx}: val_loss={eval_loss}")
+                if eval_loss < best_eval:
+                    best_eval = eval_loss
                     self.save_model(step=epoch_idx)
 
-    def train_epoch(self, train_loader, epoch):
-        # Train model for one epoch, and log avg loss and accuracy
-        accs, losses = [], []
-        for batch in tqdm(train_loader, desc='Training', leave=False):
-            self.state, self.rng, loss, accuracy = self.train_step(self.state, self.rng, batch)
+    def train_epoch(self, train_data, epoch, key):
+        # Train model for one epoch, and log avg loss
+        losses = []
+        for batch in train_data:
+            self.state, loss = self.train_step(self.state, batch, key)
             losses.append(loss)
-            accs.append(accuracy)
-        avg_loss = np.stack(jax.device_get(losses)).mean()
-        avg_acc = np.stack(jax.device_get(accs)).mean()
+        losses_np = np.stack(jax.device_get(losses))
+        avg_loss = losses_np.mean()
+        print(f"Epoch {epoch}: avg_train_loss={avg_loss}")
 
-    def eval_model(self, data_loader):
-        # Test model on all data points of a data loader and return avg accuracy
-        correct_class, count = 0, 0
+    def eval_model(self, data_loader, key):
+        # Test model on all images of a data loader and return avg loss
+        losses = []
+        batch_sizes = []
         for batch in data_loader:
-            acc, self.rng = self.eval_step(self.state, self.rng, batch)
-            correct_class += acc * batch[0].shape[0]
-            count += batch[0].shape[0]
-        eval_acc = (correct_class / count).item()
-        return eval_acc
+            loss = self.eval_step(self.state, batch, key)
+            losses.append(loss)
+            batch_sizes.append(batch[0].shape[0])
+        losses_np = np.stack(jax.device_get(losses))
+        batch_sizes_np = np.stack(batch_sizes)
+        avg_loss = (losses_np * batch_sizes_np).sum() / batch_sizes_np.sum()
+        return avg_loss
 
     def save_model(self, step=0):
         # Save current model at certain training iteration
-        checkpoints.save_checkpoint(ckpt_dir=self.log_dir, target=self.state.params, step=step)
-
+        checkpoints.save_checkpoint(ckpt_dir=self.log_dir, target=self.state.params, prefix=self.dataset_name, step=step)
+    
     def load_model(self, pretrained=False):
-        # Load model. We use different checkpoint for the pretrained model
+        # Load model. We use different checkpoint for pretrained models
         if not pretrained:
-            params = checkpoints.restore_checkpoint(ckpt_dir=self.log_dir, target=self.state.params)
+            params = checkpoints.restore_checkpoint(ckpt_dir=self.log_dir, target=self.state.params, prefix=self.dataset_name)
         else:
-            params = checkpoints.restore_checkpoint(ckpt_dir=os.path.join(CHECKPOINT_PATH, f'{self.model_name}.ckpt'), target=self.state.params)
+            params = checkpoints.restore_checkpoint(ckpt_dir=os.path.join(CHECKPOINT_PATH, f"{self.dataset_name}.ckpt"), target=self.state.params)
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=params, tx=self.state.tx)
 
     def checkpoint_exists(self):
-        # Check whether a pretrained model exist for this Transformer
-        return os.path.isfile(os.path.join(CHECKPOINT_PATH, f'{self.model_name}.ckpt'))
+        # Check whether a pretrained model exist for this autoencoder
+        return os.path.isfile(os.path.join(CHECKPOINT_PATH, f"{self.dataset_name}.ckpt"))
