@@ -64,7 +64,7 @@ def train_one_epoch(model: fnn.Module, criterion: fnn.Module,  #before torch.nn.
         if (data_iter_step + 1) % accum_iter == 0:
             optimizer.zero_grad()
 
-        torch.cuda.synchronize() #before torch.cuda.synchronize()
+        (jax.device_put(0.) + 0).block_until_ready() #before torch.cuda.synchronize()
 
         metric_logger.update(loss=loss_value)
         min_lr = 10.
@@ -90,9 +90,9 @@ def train_one_epoch(model: fnn.Module, criterion: fnn.Module,  #before torch.nn.
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
-@torch.no_grad()
+#before torch.no_grad()
 def evaluate(data_loader, model, device):
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = cross_entropy_loss() #before torch.nn.CrossEntropyLoss()
 
     metric_logger = misc.MetricLogger(delimiter="  ")
     header = 'Test:'
@@ -107,7 +107,7 @@ def evaluate(data_loader, model, device):
         target = target.to(device, non_blocking=True)
 
         # compute output
-        with torch.cuda.amp.autocast():
+        with torch.cuda.amp.autocast(): #before torch.cuda.amp.autocast
             output = model(images)
             loss = criterion(output, target)
 
