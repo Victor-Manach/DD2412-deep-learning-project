@@ -8,18 +8,18 @@ from flax.training import train_state, checkpoints
 import flax.linen as nn
 from tqdm.auto import tqdm
 
-from mae import MAEViT, mae_loss
+from mae import mae_loss, mae_norm_pix_loss
 
 # Path to the folder where the pretrained models are saved
 CHECKPOINT_PATH = "./saved_models/"
 
 class TrainModule:
-    def __init__(self, train, exmp_imgs, dataset_name, seed=42, lr=1e-3):
+    def __init__(self, model, train, exmp_imgs, dataset_name, seed=42, lr=1e-3):
         super().__init__()
         self.lr = lr
         self.seed = seed
         # Create empty model. Note: no parameters yet
-        self.model = MAEViT()
+        self.model = model
         # Prepare logging
         self.exmp_imgs = exmp_imgs
         self.log_dir = os.path.join(CHECKPOINT_PATH, dataset_name)
@@ -32,8 +32,12 @@ class TrainModule:
 
     def create_functions(self):
         # Training function
+        if self.model.norm_pix_loss:
+            loss_func = mae_norm_pix_loss
+        else:
+            loss_func = mae_loss
         def train_step(state, batch, key):
-            loss_fn = lambda params: mae_loss(model=self.model, params=params, x=batch, train=True, key=key)
+            loss_fn = lambda params: loss_func(model=self.model, params=params, x=batch, train=True, key=key)
             loss, grads = jax.value_and_grad(loss_fn)(state.params)  # Get loss and gradients for loss
             state = state.apply_gradients(grads=grads)  # Optimizer update step
             return state, loss
@@ -68,11 +72,12 @@ class TrainModule:
         for epoch_idx in tqdm(range(1, num_epochs+1)):
             self.train_epoch(train_data=train_data, epoch=epoch_idx, key=key)
             if epoch_idx % 10 == 0:
-                eval_loss = self.eval_model(val_data)
-                print(f"Epoch {epoch_idx}: val_loss={eval_loss}")
+                eval_loss = self.eval_model(val_data, key)
+                print(f"Epoch {epoch_idx}: val_loss={eval_loss:.5f}")
                 if eval_loss < best_eval:
                     best_eval = eval_loss
                     self.save_model(step=epoch_idx)
+        return self.state.params
 
     def train_epoch(self, train_data, epoch, key):
         # Train model for one epoch, and log avg loss
@@ -82,7 +87,7 @@ class TrainModule:
             losses.append(loss)
         losses_np = np.stack(jax.device_get(losses))
         avg_loss = losses_np.mean()
-        print(f"Epoch {epoch}: avg_train_loss={avg_loss}")
+        print(f"Epoch {epoch}: avg_train_loss={avg_loss:.5f}")
 
     def eval_model(self, data_loader, key):
         # Test model on all images of a data loader and return avg loss

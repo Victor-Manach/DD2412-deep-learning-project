@@ -5,6 +5,7 @@ import flax.linen as nn
 import jax.numpy as jnp
 from embeddings import PatchEmbedding, position_embedding
 from vision_transformer import Block
+import time
 
 class MAEViT(nn.Module):
     img_size : int = 224
@@ -65,7 +66,7 @@ class MAEViT(nn.Module):
         Given a list of patches, recreate the corresponding image
         Use jax.vmap to extend the function to a batch of list of patches
         """
-        p = self.patch_embed.patch_size[0]
+        p = self.patch_size
         h = w = int(x.shape[0]**.5)
         
         x = x.reshape((h, w, p, p, 3))
@@ -156,13 +157,29 @@ def mae_loss(model, params, x, train, key):
     """
     target = model.create_patches(x)
     if model.norm_pix_loss:
-        mean = target.mean(axis=-1, keepdim=True)
-        var = target.var(axis=-1, keepdim=True)
+        mean = jnp.mean(target, axis=-1, keepdims=True)
+        var = jnp.var(target, axis=-1, keepdim=True)
         target = (target - mean) / (var + 1.e-6)**.5
 
     y, mask = model.apply({'params': params}, x=x, train=train, key=key)
-    loss = (y - target) ** 2
-    loss = loss.mean(axis=-1)  # [N, L], mean loss per patch
+    loss = jnp.mean((y - target) ** 2, axis=-1) # [N, L], mean loss per patch
 
-    loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
+    loss = jnp.sum((loss * mask)) / jnp.sum(mask)  # mean loss on removed patches
+    return loss
+
+def mae_norm_pix_loss(model, params, x, train, key):
+    """
+    x: [N, 3, H, W]
+    y: [N, L, p*p*3]
+    mask: [N, L], 0 is keep, 1 is remove, 
+    """
+    target = model.create_patches(x)
+    mean = jnp.mean(target, axis=-1, keepdims=True)
+    var = jnp.var(target, axis=-1, keepdim=True)
+    target = (target - mean) / (var + 1.e-6)**.5
+
+    y, mask = model.apply({'params': params}, x=x, train=train, key=key)
+    loss = jnp.mean((y - target) ** 2, axis=-1) # [N, L], mean loss per patch
+
+    loss = jnp.sum((loss * mask)) / jnp.sum(mask)  # mean loss on removed patches
     return loss

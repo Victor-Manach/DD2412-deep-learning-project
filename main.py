@@ -13,10 +13,13 @@ def main():
     #dataset_name, split = "mnist", ["test", "train[:20%]", "train[20%:]"]
     
     # load the dataset
+    t1 = time.time()
     train_data, val_data, test_data = load_datasets.build_train_dataset(dataset=dataset_name, split=split, batch_size=256)
+    print(f"Time to load the datasets: {time.time()-t1:.4f}s")
     
     # import the model
-    model = mae.MAEViT(img_size=224,
+    t1 = time.time()
+    model_mae = mae.MAEViT(img_size=224,
                        patch_size=16,
                        nb_channels=3,
                        embed_dim=16, # 1024
@@ -27,19 +30,20 @@ def main():
                        decoder_num_heads=4, # 16
                        mlp_ratio=2., # 4
                        norm_pix_loss=False)
+    print(f"Time to create the mae model: {time.time()-t1:.4f}s")
     
     # train the model
     print("Starting training phase")
     t1 = time.time()
-    trainer = TrainModule(train=train_data, exmp_imgs=next(iter(val_data))[:8], dataset_name=dataset_name)
-    trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs, key=train_key)
-    print(f"End of training phase: {time.time()-t1}s")
+    trainer = TrainModule(model=model_mae, train=train_data, exmp_imgs=next(iter(val_data))[:8], dataset_name=dataset_name)
+    params_mae = trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs, key=train_key)
+    print(f"End of training phase: {time.time()-t1:.4f}s")
     
     # evaluate the model on the train and test sets
     train_loss = trainer.eval_model(train_data, key=test_key)
     test_loss = trainer.eval_model(test_data, key=test_key)
-    print(f"Trained for {num_epochs}: train_loss={train_loss}")
-    print(f"Trained for {num_epochs}: test_loss={test_loss}")
+    print(f"Trained for {num_epochs} epochs: train_loss={train_loss:.5f}")
+    print(f"Trained for {num_epochs} epochs: test_loss={test_loss:.5f}")
     
 if __name__ == '__main__':
     main()
