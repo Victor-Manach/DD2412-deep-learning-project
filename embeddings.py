@@ -38,18 +38,23 @@ class PatchEmbedding(nn.Module):
         """
         images: [batch_size, nb_colors, height, width]
         """
+        
         batch_size, height, width, nb_colors = images.shape
         images = jnp.transpose(images, axes=(0,2,3,1))
         
         # create the embedding for all the patches of the images, transpose the axes to meet Flax's conv layer requirements
-        embedding = self.embedding_layer(images)
-        embedding = jnp.transpose(embedding, axes=(0,3,1,2))
+#         embedding = self.embedding_layer(images)
+        embedding = vmap(embedding_layer)(images)
+#         embedding = jnp.transpose(embedding, axes=(0,3,1,2))
+        
         
         if self.flatten:
             embedding = jnp.reshape(embedding, (batch_size, -1, embedding.shape[1]))
 
         # normalize the embeddings of the patches
-        embedding = self.norm(embedding)
+#         embedding = self.norm(embedding)
+        embedding = vmap(norm)(embedding)
+
         return embedding
 
 def position_embedding(nb_patches, embedding_dim, cls_token=False):
