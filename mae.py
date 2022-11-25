@@ -156,13 +156,9 @@ def mae_loss(model, params, x, train, key):
     mask: [N, L], 0 is keep, 1 is remove, 
     """
     target = model.create_patches(x)
-    if model.norm_pix_loss:
-        mean = jnp.mean(target, axis=-1, keepdims=True)
-        var = jnp.var(target, axis=-1, keepdim=True)
-        target = (target - mean) / (var + 1.e-6)**.5
 
     y, mask = model.apply({'params': params}, x=x, train=train, key=key)
-    loss = jnp.mean((y - target) ** 2, axis=-1) # [N, L], mean loss per patch
+    loss = jnp.mean(jnp.square(y - target), axis=-1) # [N, L], mean loss per patch
 
     loss = jnp.sum((loss * mask)) / jnp.sum(mask)  # mean loss on removed patches
     return loss
@@ -179,7 +175,7 @@ def mae_norm_pix_loss(model, params, x, train, key):
     target = (target - mean) / (var + 1.e-6)**.5
 
     y, mask = model.apply({'params': params}, x=x, train=train, key=key)
-    loss = jnp.mean((y - target) ** 2, axis=-1) # [N, L], mean loss per patch
+    loss = jnp.mean(jnp.square(y - target), axis=-1) # [N, L], mean loss per patch
 
     loss = jnp.sum((loss * mask)) / jnp.sum(mask)  # mean loss on removed patches
     return loss
