@@ -155,13 +155,14 @@ def mae_loss(model, params, x, train, key):
     y: [N, L, p*p*3]
     mask: [N, L], 0 is keep, 1 is remove, 
     """
+    key, dropout_apply_rng, masked_rng = jax.random.split(key, 3)
     target = model.create_patches(x)
 
-    y, mask = model.apply({'params': params}, x=x, train=train, key=key)
+    y, mask = model.apply({'params': params}, x=x, train=train, key=masked_rng, rngs={'dropout': dropout_apply_rng})
     loss = jnp.mean(jnp.square(y - target), axis=-1) # [N, L], mean loss per patch
 
     loss = jnp.sum((loss * mask)) / jnp.sum(mask)  # mean loss on removed patches
-    return loss
+    return loss, key
 
 def mae_norm_pix_loss(model, params, x, train, key):
     """
@@ -169,13 +170,14 @@ def mae_norm_pix_loss(model, params, x, train, key):
     y: [N, L, p*p*3]
     mask: [N, L], 0 is keep, 1 is remove, 
     """
+    key, dropout_apply_rng, masked_rng = jax.random.split(key, 3)
     target = model.create_patches(x)
     mean = jnp.mean(target, axis=-1, keepdims=True)
     var = jnp.var(target, axis=-1, keepdim=True)
     target = (target - mean) / (var + 1.e-6)**.5
 
-    y, mask = model.apply({'params': params}, x=x, train=train, key=key)
+    y, mask = model.apply({'params': params}, x=x, train=train, key=masked_rng, rngs={'dropout': dropout_apply_rng})
     loss = jnp.mean(jnp.square(y - target), axis=-1) # [N, L], mean loss per patch
 
     loss = jnp.sum((loss * mask)) / jnp.sum(mask)  # mean loss on removed patches
-    return loss
+    return loss, key
