@@ -6,8 +6,6 @@ import time
 
 def main():
     num_epochs = 2
-    main_key = jax.random.PRNGKey(0)
-    train_key, test_key = jax.random.split(main_key, 2)
     # split represents [test_set, validation_set, train_set]
     dataset_name, split = "imagenette/160px-v2", ["validation", "train[:20%]", "train[20%:]"]
     #dataset_name, split = "mnist", ["test", "train[:20%]", "train[20%:]"]
@@ -35,13 +33,13 @@ def main():
     # train the model
     print("Starting training phase")
     t1 = time.time()
-    trainer = TrainModule(model=model_mae, train=train_data, exmp_imgs=next(iter(val_data))[:8], dataset_name=dataset_name)
-    params_mae = trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs, key=train_key)
+    trainer = TrainModule(model=model_mae, train=train_data, exmp_imgs=next(iter(val_data))[:8], dataset_name=dataset_name, seed=42)
+    params_mae = trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs)
     print(f"End of training phase: {time.time()-t1:.4f}s")
     
     # evaluate the model on the train and test sets
-    train_loss = trainer.eval_model(train_data, key=test_key)
-    test_loss = trainer.eval_model(test_data, key=test_key)
+    train_loss = trainer.eval_model(train_data)
+    test_loss = trainer.eval_model(test_data)
     print(f"Trained for {num_epochs} epochs: train_loss={train_loss:.5f}")
     print(f"Trained for {num_epochs} epochs: test_loss={test_loss:.5f}")
     

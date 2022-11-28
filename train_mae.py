@@ -1,4 +1,5 @@
 import os
+import time
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -27,8 +28,7 @@ class TrainModule:
         # Create jitted training and eval functions
         self.create_functions()
         # Initialize model
-        init_key = jax.random.PRNGKey(self.seed)
-        self.init_model(train, init_key)
+        self.init_model(train)
 
     def create_functions(self):
         # Training function
@@ -38,19 +38,26 @@ class TrainModule:
             loss_func = mae_loss
         def train_step(state, batch, key):
             loss_fn = lambda params: loss_func(model=self.model, params=params, x=batch, train=True, key=key)
-            loss, grads = jax.value_and_grad(loss_fn)(state.params)  # Get loss and gradients for loss
+            t1 = time.time()
+            ret, grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)  # Get loss and gradients for loss
+            loss, key = ret[0], ret[1]
+            print(f"Time to compute the gradient of the loss func: {time.time()-t1:.4f}s")
+            t1 = time.time()
             state = state.apply_gradients(grads=grads)  # Optimizer update step
-            return state, loss
+            print(f"Time to update the gradient parameters: {time.time()-t1:.4f}s")
+            return state, loss, key
         self.train_step = jax.jit(train_step)
         # Eval function
         def eval_step(state, batch, key):
-            return mae_loss(model=self.model, params=state.params, x=batch, train=False, key=key)
+            loss, rng = mae_loss(model=self.model, params=state.params, x=batch, train=False, key=key)
+            return loss, rng
         self.eval_step = jax.jit(eval_step)
 
-    def init_model(self, train_data, key):
+    def init_model(self, train_data):
         # Initialize model
-        init_key, rng_key, dropout_init_key = jax.random.split(key, 3)
-        params = self.model.init({"params": init_key, "dropout": dropout_init_key}, x=self.exmp_imgs, train=True, key=rng_key)["params"]
+        self.rng = jax.random.PRNGKey(self.seed)
+        self.rng, init_rng, dropout_init_rng, masking_rng = jax.random.split(self.rng, 4)
+        params = self.model.init({"params": init_rng, "dropout": dropout_init_rng}, x=self.exmp_imgs, train=True, key=masking_rng)["params"]
         # Initialize learning rate schedule and optimizer
         lr_schedule = optax.warmup_cosine_decay_schedule(
             init_value=0.0,
@@ -66,35 +73,38 @@ class TrainModule:
         # Initialize training state
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=params, tx=optimizer)
 
-    def train_model(self, train_data, val_data, key, num_epochs=500):
+    def train_model(self, train_data, val_data, num_epochs=500):
         # Train model for defined number of epochs
-        best_eval = 1e6
+        best_eval = np.inf
         for epoch_idx in tqdm(range(1, num_epochs+1)):
-            self.train_epoch(train_data=train_data, epoch=epoch_idx, key=key)
+            self.train_epoch(train_data=train_data, epoch=epoch_idx)
             if epoch_idx % 10 == 0:
-                eval_loss = self.eval_model(val_data, key)
+                eval_loss = self.eval_model(val_data)
                 print(f"Epoch {epoch_idx}: val_loss={eval_loss:.5f}")
                 if eval_loss < best_eval:
                     best_eval = eval_loss
                     self.save_model(step=epoch_idx)
         return self.state.params
 
-    def train_epoch(self, train_data, epoch, key):
+    def train_epoch(self, train_data, epoch):
         # Train model for one epoch, and log avg loss
         losses = []
         for batch in train_data:
-            self.state, loss = self.train_step(self.state, batch, key)
+            print("Call the train_step inside train_epoch")
+            t1 = time.time()
+            self.state, loss, self.rng = self.train_step(self.state, batch, self.rng)
+            print(f"Finished train_step: {time.time()-t1}")
             losses.append(loss)
         losses_np = np.stack(jax.device_get(losses))
         avg_loss = losses_np.mean()
         print(f"Epoch {epoch}: avg_train_loss={avg_loss:.5f}")
 
-    def eval_model(self, data_loader, key):
+    def eval_model(self, data_loader):
         # Test model on all images of a data loader and return avg loss
         losses = []
         batch_sizes = []
         for batch in data_loader:
-            loss = self.eval_step(self.state, batch, key)
+            loss, self.rng = self.eval_step(self.state, batch, self.rng)
             losses.append(loss)
             batch_sizes.append(batch[0].shape[0])
         losses_np = np.stack(jax.device_get(losses))
