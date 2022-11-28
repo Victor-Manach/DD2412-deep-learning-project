@@ -6,6 +6,7 @@
 
 import flax
 import flax.linen as nn
+import jax
 import jax.numpy as jnp
 from utils import Identity, jax_unstack
 
