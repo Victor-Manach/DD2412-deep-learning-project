@@ -9,6 +9,7 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 from utils import Identity, jax_unstack
+from functools import partial
 
 class Mlp(nn.Module):
     """ MLP as used in Vision Transformer, MLP-Mixer and related networks
@@ -32,7 +33,7 @@ class Mlp(nn.Module):
 
     @nn.compact
     def __call__(self, x, train):
-        x = nn.Dense(hidden_features, use_bias=bias[0], , name="fc1")(x)
+        x = nn.Dense(hidden_features, use_bias=bias[0], name="fc1")(x)
         x = self.act(x)
         x = nn.Dropout(drop_probs[0], name="drop1")(x, deterministic=not train)
         x = nn.Dense(out_features, use_bias=bias[1], name="fc2")(x)
