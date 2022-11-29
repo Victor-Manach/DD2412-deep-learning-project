@@ -19,8 +19,19 @@ class Mlp(nn.Module):
     act_layer : callable = nn.gelu
     bias : bool = True
     drop : float = 0.
-    
+	
+    @partial(
+        nn.vmap,
+        in_axes=(0, 0, None),
+        out_features=0,
+        variable_axes={'params': None},
+        split_rngs={'params': False, 'dropout': True},
+    )
+    @nn.compact
     def setup(self):
+    	#VmapMLP = nn.vmap(MLP, variable_axes={'params': 0}, split_rngs={'params': True}, in_axes=0)
+	#variable_axes={'params': 0}  indicate that parameters are vectorized rather than shared 
+	#split_rngs={'params': True} means each set of parameters is initialized independently
         out_features = self.out_features or self.in_features
         hidden_features = self.hidden_features or self.in_features
         bias = (self.bias, self.bias)
