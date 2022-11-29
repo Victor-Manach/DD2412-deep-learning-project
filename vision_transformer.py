@@ -72,7 +72,6 @@ class LayerScale(nn.Module):
     dim : int
     init_values : float = 1e-5
     
-    @nn.compact
     def setup(self):
         self.gamma = self.init_values * jnp.ones(self.dim)
 
