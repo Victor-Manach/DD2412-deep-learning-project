@@ -22,13 +22,12 @@ class Mlp(nn.Module):
 	
     @partial(
         nn.vmap,
-        in_axes=(0, 0, None),
+        in_axes=(0, 0),
         out_features=0,
         variable_axes={'params': None},
         split_rngs={'params': False, 'dropout': True},
     )
-    @nn.compact
-    def setup(self):
+    """def setup(self):
     	#VmapMLP = nn.vmap(MLP, variable_axes={'params': 0}, split_rngs={'params': True}, in_axes=0)
 	#variable_axes={'params': 0}  indicate that parameters are vectorized rather than shared 
 	#split_rngs={'params': True} means each set of parameters is initialized independently
@@ -41,14 +40,15 @@ class Mlp(nn.Module):
         self.act = self.act_layer
         self.drop1 = nn.Dropout(drop_probs[0])
         self.fc2 = nn.Dense(out_features, use_bias=bias[1])
-        self.drop2 = nn.Dropout(drop_probs[1])
-
+        self.drop2 = nn.Dropout(drop_probs[1])"""
+	
+    @nn.compact
     def __call__(self, x, train):
-        x = self.fc1(x)
+        x = nn.Dense(hidden_features, use_bias=bias[0], , name="fc1")(x)
         x = self.act(x)
-        x = self.drop1(x, deterministic=not train)
-        x = self.fc2(x)
-        x = self.drop2(x, deterministic=not train)
+        x = nn.Dropout(drop_probs[0], name="drop1")(x, deterministic=not train)
+        x = nn.Dense(out_features, use_bias=bias[1], name="fc2")(x)
+        x = nn.Dropout(drop_probs[1], name="drop2")(x, deterministic=not train)
         return x
 
 class Attention(nn.Module):
@@ -58,7 +58,6 @@ class Attention(nn.Module):
     attn_dropout_rate : float = 0.
     proj_dropout_rate : float = 0.
     
-    @nn.compact
     def setup(self):
         assert self.dim % self.num_heads == 0, "dim should be divisible by num_heads"
         head_dim = self.dim // self.num_heads
