@@ -40,11 +40,11 @@ class PatchEmbedding_(nn.Module):
         """
         
         height, width, nb_colors = X.shape
-        X = jnp.transpose(X, axes=(2,3,1))
+        X = jnp.transpose(X, axes=(1,2,0))
         
         # create the embedding for all the patches of the images, transpose the axes to meet Flax's conv layer requirements
         embedding = self.embedding_layer(X)
-        embedding = jnp.transpose(embedding, axes=(3,1,2))
+        embedding = jnp.transpose(embedding, axes=(2,0,1))
         
         
         if self.flatten:
