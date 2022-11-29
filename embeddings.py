@@ -6,7 +6,7 @@ import numpy as np
 from utils import Identity
 from functools import partial
 
-class PatchEmbedding(nn.Module):
+class PatchEmbedding_(nn.Module):
     """
     Convert a 2D image to a list of patch embeddings
     """
@@ -34,28 +34,41 @@ class PatchEmbedding(nn.Module):
         
         self.norm = self.normalize() if self.normalize else Identity()
         
+    def __call__(self, X):
+        """
+        images: [batch_size, nb_colors, height, width]
+        """
+        
+        height, width, nb_colors = X.shape
+        X = jnp.transpose(X, axes=(2,3,1))
+        
+        # create the embedding for all the patches of the images, transpose the axes to meet Flax's conv layer requirements
+        embedding = self.embedding_layer(X)
+        embedding = jnp.transpose(embedding, axes=(0,3,1,2))
+        
+        
+        if self.flatten:
+            embedding = jnp.reshape(embedding, (-1, embedding.shape[1]))
+
+        # normalize the embeddings of the patches
+        embedding = self.norm(embedding)
+
+        return embedding
+    
+    
+class PatchEmbedding(nn.Module):
+    """
+    Convert a 2D image to a list of patch embeddings
+    """
+        
     def __call__(self, images):
         """
         images: [batch_size, nb_colors, height, width]
         """
         
-        batch_size, height, width, nb_colors = images.shape
-        images = jnp.transpose(images, axes=(0,2,3,1))
-        
-        # create the embedding for all the patches of the images, transpose the axes to meet Flax's conv layer requirements
-#         embedding = self.embedding_layer(images)
-        embedding = vmap(embedding_layer)(images)
-#         embedding = jnp.transpose(embedding, axes=(0,3,1,2))
-        
-        
-        if self.flatten:
-            embedding = jnp.reshape(embedding, (batch_size, -1, embedding.shape[1]))
+        embeddings = nn.vmap(PatchEmbedding_)(images)
 
-        # normalize the embeddings of the patches
-#         embedding = self.norm(embedding)
-        embedding = vmap(norm)(embedding)
-
-        return embedding
+        return embeddings
 
 def position_embedding(nb_patches, embedding_dim, cls_token=False):
     """
