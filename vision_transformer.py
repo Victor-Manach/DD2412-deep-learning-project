@@ -81,15 +81,17 @@ class LayerScale(nn.Module):
     def __call__(self, x):
         return x * self.gamma
 
-def drop_path(x, drop_prob: float = 0., training: bool = False, scale_by_keep: bool = True):
-	if drop_prob == 0. or not training:
-		return x
-	keep_prob = 1 - drop_prob
-	shape = (x.shape[0],) + (1,) * (x.ndim - 1)  # work with diff dim tensors, not just 2D ConvNets
-	random_tensor = x.new_empty(shape).bernoulli_(keep_prob)
-	if keep_prob > 0.0 and scale_by_keep:
-		random_tensor.div_(keep_prob)
-	return x * random_tensor
+def drop_path(x, key, drop_prob: float = 0., train: bool = False, scale_by_keep: bool = True):
+    if drop_prob == 0. or not train:
+        return x
+    keep_prob = 1 - drop_prob
+    shape = (x.shape[0],) + (1,) * (x.ndim - 1)  # work with diff dim tensors, not just 2D ConvNets
+    # random_tensor = x.new_empty(shape).bernoulli_(keep_prob)
+    key, rng = jax.random.split()
+    random_array = jax.random.bernoulli(rng, p=keep_prob, shape=shape)
+    if keep_prob > 0.0 and scale_by_keep:
+        random_array /= keep_prob
+    return x * random_array, key
   
 class DropPath(nn.Module):
     """Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks).
@@ -97,8 +99,9 @@ class DropPath(nn.Module):
     drop_prob: float = 0.
     scale_by_keep: bool = True
 
-    def __call__(self, x, train):
-        return drop_path(x, self.drop_prob, train, self.scale_by_keep)
+    @nn.compact
+    def __call__(self, x, key, train):
+        return drop_path(x, key, self.drop_prob, train, self.scale_by_keep)
 
     def extra_repr(self):
         return f'drop_prob={round(self.drop_prob,3):0.3f}'
@@ -106,6 +109,7 @@ class DropPath(nn.Module):
 class Block(nn.Module):
     dim : int
     num_heads : int
+    norm_layer : callable
     mlp_ratio : float = 4.
     qkv_bias : bool = False
     dropout_rate : float = 0.
@@ -113,7 +117,6 @@ class Block(nn.Module):
     init_values : float = None
     drop_path : float = 0.
     act_layer : callable = nn.gelu
-    norm_layer : callable = nn.LayerNorm
     
     def setup(self):
         self.norm1 = self.norm_layer
@@ -127,7 +130,7 @@ class Block(nn.Module):
         self.ls2 = LayerScale(self.dim, init_values=self.init_values) if self.init_values else Identity()
         self.drop_path2 = DropPath(self.drop_path) if self.drop_path > 0. else Identity()
 
-    def __call__(self, x, train):
-        x += self.drop_path1(self.ls1(self.attn(self.norm1(x), train=train)), train=train)
-        x += self.drop_path2(self.ls2(self.mlp(self.norm2(x), train=train)), train=train)
+    def __call__(self, x, key, train):
+        x += self.drop_path1(self.ls1(self.attn(self.norm1(x), train=train)), key, train=train)
+        x += self.drop_path2(self.ls2(self.mlp(self.norm2(x), train=train)), key, train=train)
         return x

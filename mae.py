@@ -7,7 +7,7 @@ from embeddings import PatchEmbedding, position_embedding
 from vision_transformer import Block
 import time
 
-class MAEViT(nn.Module):
+class _MAEViT(nn.Module):
     img_size : int = 224
     patch_size : int = 16
     nb_channels : int = 3
@@ -34,7 +34,7 @@ class MAEViT(nn.Module):
         
         self.position_embedding = jnp.array(pos_embed)
         #self.encoder_blocks = objax.ModuleList([Block(self.embed_dim, self.encoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer = self.norm_layer) for i in range(self.encoder_depth)])
-        self.encoder_blocks = [Block(self.embed_dim, self.encoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer = self.encoder_block_norm_layer) for i in range(self.encoder_depth)]
+        self.encoder_blocks = [Block(dim=self.embed_dim, num_heads=self.encoder_num_heads, norm_layer=self.encoder_block_norm_layer, mlp_ratio=self.mlp_ratio, qkv_bias=True) for i in range(self.encoder_depth)]
         self.encoder_norm_layer = nn.LayerNorm()
         
         # DECODER
@@ -42,11 +42,10 @@ class MAEViT(nn.Module):
         self.mask_token = jnp.zeros((1, 1, self.decoder_embed_dim))
         self.decoder_position_embedding = jnp.array(decoder_pos_embed)
         #self.decoder_blocks = objax.ModuleList([Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer) for i in range(self.decoder_depth)])
-        self.decoder_blocks = [Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.decoder_block_norm_layer) for i in range(self.decoder_depth)]
+        self.decoder_blocks = [Block(dim=self.decoder_embed_dim, num_heads=self.decoder_num_heads, norm_layer=self.decoder_block_norm_layer, mlp_ratio=self.mlp_ratio, qkv_bias=True) for i in range(self.decoder_depth)]
         self.decoder_norm_layer = nn.LayerNorm()
         self.decoder_prediction = nn.Dense(self.patch_size**2 * self.nb_channels, use_bias = True)
     
-    @partial(jax.vmap, in_axes=(None, 0), out_axes=0)
     def create_patches(self, x):
         """
         Given an image, create a list of patches for that image
@@ -60,7 +59,6 @@ class MAEViT(nn.Module):
         
         return x_patches
     
-    @partial(jax.vmap, in_axes=(None, 0), out_axes=0)
     def recreate_images(self, x):
         """
         Given a list of patches, recreate the corresponding image
@@ -75,7 +73,6 @@ class MAEViT(nn.Module):
         
         return imgs
     
-    @partial(jax.vmap, in_axes=(None, 0, None, 0), out_axes=0)
     def random_masking(self, x, mask_ratio, key):
         """
         Perform a random masking on the embeddings of the patches
@@ -99,7 +96,7 @@ class MAEViT(nn.Module):
         
         return x_masked, mask, ids_restore
     
-    def encoder(self, x, mask_ratio, train, key):
+    def encoder(self, x, mask_ratio, train, key): #TODO: remove batch
         x = self.patch_embed(x)
         
         x += self.position_embedding[:, 1:, :]
@@ -112,13 +109,13 @@ class MAEViT(nn.Module):
         x = jnp.concatenate([cls_tokens, x], axis=1)
         
         # apply the transformer
-        for l in self.encoder_blocks:
+        for l in self.encoder_blocks: # if layer is a block layer, key argument must be passed
             x = l(x, train)
         x = self.encoder_norm_layer(x)
         
         return x, mask, ids_restore
     
-    def decoder(self, x, ids_restore, train):
+    def decoder(self, x, ids_restore, train): # TODO: remove batch
         x = self.decoder_embedding(x)
 
         # append mask tokens to sequence
@@ -181,3 +178,10 @@ def mae_norm_pix_loss(model, params, x, train, key):
 
     loss = jnp.sum((loss * mask)) / jnp.sum(mask)  # mean loss on removed patches
     return loss, key
+
+
+class MAEViT(nn.Module):
+    @nn.compact
+    def __call__(self, x, train, key, masked_ratio=.75):
+        VmapMAEViT = nn.vmap(_MAEViT, variable_axes={'params': 0, 'batch_stats': 0}, split_rngs={'params': True}, in_axes=0)
+        return VmapMAEViT()(x=x, train=train, key=key, masked_ratio=masked_ratio)
