@@ -24,7 +24,8 @@ class Mlp(nn.Module):
         nn.vmap,
         in_axes=(0, 0),
         out_features=0,
-        variable_axes={'params': None}, #Maybe need to include the "intermediates" variable collection in the "variable_axes" in the lifted "vmap" call, 
+        variable_axes={'params': None}, #indicates that the parameter variables are shared along the mapped axis.
+	    #Maybe need to include the "intermediates" variable collection in the "variable_axes" in the lifted "vmap" call, 
 	    #so maybe replace variable_axes={'params': None} with variable_axes={'params': None, 'intermediates': 0}.
         split_rngs={'params': False, 'dropout': True},
     )
