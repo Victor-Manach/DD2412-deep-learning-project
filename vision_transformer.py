@@ -23,7 +23,7 @@ class Mlp(nn.Module):
 	
     @partial(
         nn.vmap,
-        in_axes=(0, 0),
+        in_axes=0, # (0, None),
         out_features=0,
         variable_axes={'params': None}, #indicates that the parameter variables are shared along the mapped axis.
 	    #Maybe need to include the "intermediates" variable collection in the "variable_axes" in the lifted "vmap" call, 
