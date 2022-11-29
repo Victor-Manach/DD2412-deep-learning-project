@@ -56,8 +56,8 @@ class TrainModule:
     def init_model(self, train_data):
         # Initialize model
         self.rng = jax.random.PRNGKey(self.seed)
-        self.rng, init_rng, dropout_init_rng, masking_rng = jax.random.split(self.rng, 4)
-        params = self.model.init({"params": init_rng, "dropout": dropout_init_rng}, x=self.exmp_imgs, train=True, key=masking_rng)["params"]
+        self.rng, init_rng, masking_rng = jax.random.split(self.rng, 3)
+        params = self.model.init({"params": init_rng}, x=self.exmp_imgs, train=True, key=masking_rng)["params"]
         # Initialize learning rate schedule and optimizer
         lr_schedule = optax.warmup_cosine_decay_schedule(
             init_value=0.0,

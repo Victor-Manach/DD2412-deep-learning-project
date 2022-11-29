@@ -6,7 +6,7 @@ import numpy as np
 from utils import Identity
 from functools import partial
 
-class PatchEmbedding_(nn.Module):
+class _PatchEmbedding(nn.Module):
     """
     Convert a 2D image to a list of patch embeddings
     """
@@ -34,16 +34,16 @@ class PatchEmbedding_(nn.Module):
         
         self.norm = self.normalize() if self.normalize else Identity()
         
-    def __call__(self, X):
+    def __call__(self, x):
         """
         image: [nb_colors, height, width]
         """
         
-        height, width, nb_colors = X.shape
-        X = jnp.transpose(X, axes=(1,2,0))
+        height, width, nb_colors = x.shape
+        Xx= jnp.transpose(x, axes=(1,2,0))
         
         # create the embedding for all the patches of the images, transpose the axes to meet Flax's conv layer requirements
-        embedding = self.embedding_layer(X)
+        embedding = self.embedding_layer(x)
         embedding = jnp.transpose(embedding, axes=(2,0,1))
         
         if self.flatten:
@@ -59,15 +59,10 @@ class PatchEmbedding(nn.Module):
     """
     Convert a 2D image to a list of patch embeddings
     """
-        
-    def __call__(self, images):
-        """
-        images: [batch_size, nb_colors, height, width]
-        """
-        
-        embeddings = nn.vmap(PatchEmbedding_)(images)
-
-        return embeddings
+    @nn.compact
+    def __call__(self, x):
+        VmapPatchEmbedding = nn.vmap(_PatchEmbedding, variable_axes={'params': 0}, split_rngs={'params': True}, in_axes=0)
+        return VmapPatchEmbedding()(x)
 
 def position_embedding(nb_patches, embedding_dim, cls_token=False):
     """
