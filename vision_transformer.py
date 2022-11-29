@@ -58,6 +58,7 @@ class Attention(nn.Module):
     attn_dropout_rate : float = 0.
     proj_dropout_rate : float = 0.
     
+    @nn.compact
     def setup(self):
         assert self.dim % self.num_heads == 0, "dim should be divisible by num_heads"
         head_dim = self.dim // self.num_heads
@@ -86,6 +87,7 @@ class LayerScale(nn.Module):
     dim : int
     init_values : float = 1e-5
     
+    @nn.compact
     def setup(self):
         self.gamma = self.init_values * jnp.ones(self.dim)
 
