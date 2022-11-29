@@ -47,7 +47,7 @@ class Mlp(nn.Module):
         VmapMlp = nn.vmap(_Mlp, in_axes=0, variable_axes={"params", None}, split_rngs={"params": False, "dropout": True})
         return VmapMlp(x=x, train=train)
 
-class Attention(nn.Module):
+class _Attention(nn.Module):
     dim : int
     num_heads : int = 8
     qkv_bias : bool = False
@@ -65,18 +65,24 @@ class Attention(nn.Module):
         self.proj_drop = nn.Dropout(self.proj_dropout_rate)
 
     def __call__(self, x, train):
-        B, N, C = x.shape
-        qkv = jnp.transpose(self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads), axes=(2, 0, 3, 1, 4))
+        N, C = x.shape
+        qkv = jnp.transpose(self.qkv(x).reshape(N, 3, self.num_heads, C // self.num_heads), axes=(0, 2, 1, 3))
         q, k, v = jax_unstack(qkv, axis=0)
 
         attn = (q @ jnp.swapaxes(k, -2, -1)) * self.scale
         attn = nn.softmax(attn, axis=-1)
         attn = self.attn_drop(attn, deterministic=not train)
 
-        x = jnp.swapaxes((attn @ v), 1, 2).reshape(B, N, C)
+        x = jnp.swapaxes((attn @ v), 1, 2).reshape(N, C)
         x = self.proj(x)
         x = self.proj_drop(x, deterministic=not train)
         return x
+
+class Attention(nn.Module):
+    @nn.compact
+    def __call__(self, x, train):
+        VmapAttention = nn.vmap(_Attention, variable_axes={'params': 0, 'batch_stats': 0}, split_rngs={'params': True}, in_axes=0)
+        return VmapAttention()(x, train=train)
 
 class LayerScale(nn.Module):
     dim : int
