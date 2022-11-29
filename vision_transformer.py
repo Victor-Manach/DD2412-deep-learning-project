@@ -34,7 +34,7 @@ class Mlp(nn.Module):
     @nn.compact
     def __call__(self, x, train):
         x = nn.Dense(hidden_features, use_bias=bias[0], name="fc1")(x)
-        x = self.act(x)
+        x = act_layer(x)
         x = nn.Dropout(drop_probs[0], name="drop1")(x, deterministic=not train)
         x = nn.Dense(out_features, use_bias=bias[1], name="fc2")(x)
         x = nn.Dropout(drop_probs[1], name="drop2")(x, deterministic=not train)
