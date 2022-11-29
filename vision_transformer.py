@@ -27,21 +27,7 @@ class Mlp(nn.Module):
         variable_axes={'params': None},
         split_rngs={'params': False, 'dropout': True},
     )
-    """def setup(self):
-    	#VmapMLP = nn.vmap(MLP, variable_axes={'params': 0}, split_rngs={'params': True}, in_axes=0)
-	#variable_axes={'params': 0}  indicate that parameters are vectorized rather than shared 
-	#split_rngs={'params': True} means each set of parameters is initialized independently
-        out_features = self.out_features or self.in_features
-        hidden_features = self.hidden_features or self.in_features
-        bias = (self.bias, self.bias)
-        drop_probs = (self.drop, self.drop)
 
-        self.fc1 = nn.Dense(hidden_features, use_bias=bias[0])
-        self.act = self.act_layer
-        self.drop1 = nn.Dropout(drop_probs[0])
-        self.fc2 = nn.Dense(out_features, use_bias=bias[1])
-        self.drop2 = nn.Dropout(drop_probs[1])"""
-	
     @nn.compact
     def __call__(self, x, train):
         x = nn.Dense(hidden_features, use_bias=bias[0], , name="fc1")(x)
