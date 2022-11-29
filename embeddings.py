@@ -85,5 +85,5 @@ def position_embedding(nb_patches, embedding_dim, cls_token=False):
     if cls_token:
         position_embedding = jnp.concatenate([jnp.zeros([1, embedding_dim]), position_embedding], axis=0)
     
-    position_embedding = position_embedding[None]
+    #position_embedding = position_embedding[None]
     return position_embedding

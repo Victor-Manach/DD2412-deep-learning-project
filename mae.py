@@ -28,7 +28,7 @@ class _MAEViT(nn.Module):
         self.decoder_block_norm_layer = nn.LayerNorm()
         
         # ENCODER
-        self.cls_token = jnp.zeros((1, 1, self.embed_dim))
+        self.cls_token = jnp.zeros((1, self.embed_dim))
         pos_embed = position_embedding(nb_patches, self.embed_dim, cls_token=True)
         decoder_pos_embed = position_embedding(nb_patches, self.decoder_embed_dim, cls_token=True)
         
@@ -96,17 +96,17 @@ class _MAEViT(nn.Module):
         
         return x_masked, mask, ids_restore
     
-    def encoder(self, x, mask_ratio, train, key): #TODO: remove batch
+    def encoder(self, x, mask_ratio, train, key):
         x = self.patch_embed(x)
         
-        x += self.position_embedding[:, 1:, :]
+        x += self.position_embedding[1:, :]
         
-        keys = jax.random.split(key, x.shape[0])
-        x, mask, ids_restore = self.random_masking(x, mask_ratio, keys)
+        #keys = jax.random.split(key, x.shape[0])
+        x, mask, ids_restore = self.random_masking(x, mask_ratio, key)
         
-        cls_token = self.cls_token + self.position_embedding[:, :1, :]
-        cls_tokens = jnp.tile(cls_token, (x.shape[0], 1, 1))
-        x = jnp.concatenate([cls_tokens, x], axis=1)
+        cls_token = self.cls_token + self.position_embedding[:1, :]
+        #cls_tokens = jnp.tile(cls_token, (x.shape[0], 1, 1))
+        x = jnp.concatenate([cls_token, x], axis=1)
         
         # apply the transformer
         for l in self.encoder_blocks: # if layer is a block layer, key argument must be passed
@@ -115,15 +115,15 @@ class _MAEViT(nn.Module):
         
         return x, mask, ids_restore
     
-    def decoder(self, x, ids_restore, train): # TODO: remove batch
+    def decoder(self, x, ids_restore, train):
         x = self.decoder_embedding(x)
 
         # append mask tokens to sequence
-        mask_tokens = jnp.tile(self.mask_token, (x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1))
-        x_ = jnp.concatenate([x[:, 1:, :], mask_tokens], axis=1)  # no cls token
-        reshaped_ids = jnp.tile(ids_restore.reshape(ids_restore.shape[0], ids_restore.shape[1], -1), (1, 1, x.shape[2]))
+        #mask_tokens = jnp.tile(self.mask_token, (x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1))
+        x_ = jnp.concatenate([x[1:, :], self.mask_token], axis=1)  # no cls token
+        reshaped_ids = ids_restore.reshape(ids_restore.shape[0], ids_restore.shape[1], -1)
         x_ = jnp.take_along_axis(x_, reshaped_ids, axis=1)  # unshuffle
-        x = jnp.concatenate([x[:, :1, :], x_], axis=1)  # append cls token
+        x = jnp.concatenate([x[:1, :], x_], axis=1)  # append cls token
 
         # add pos embed
         x += self.decoder_position_embedding
@@ -137,7 +137,7 @@ class _MAEViT(nn.Module):
         x = self.decoder_prediction(x)
 
         # remove cls token
-        x = x[:, 1:, :]
+        x = x[1:, :]
 
         return x
     
