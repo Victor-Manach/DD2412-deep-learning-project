@@ -11,7 +11,7 @@ import jax.numpy as jnp
 from utils import Identity, jax_unstack
 from functools import partial
 
-class Mlp(nn.Module):
+class _Mlp(nn.Module):
     """ MLP as used in Vision Transformer, MLP-Mixer and related networks
     """
     in_features : int
@@ -20,25 +20,32 @@ class Mlp(nn.Module):
     act_layer : callable = nn.gelu
     bias : bool = True
     drop : float = 0.
-	
-    @partial(
-        nn.vmap,
-        in_axes=(0, 0),
-        out_features=0,
-        variable_axes={'params': None}, #indicates that the parameter variables are shared along the mapped axis.
-	    #Maybe need to include the "intermediates" variable collection in the "variable_axes" in the lifted "vmap" call, 
-	    #so maybe replace variable_axes={'params': None} with variable_axes={'params': None, 'intermediates': 0}.
-        split_rngs={'params': False, 'dropout': True},
-    )
 
+    def setup(self):
+        out_features = self.out_features or self.in_features
+        hidden_features = self.hidden_features or self.in_features
+        bias = (self.bias, self.bias)
+        drop_probs = (self.drop, self.drop)
+
+        self.fc1 = nn.Dense(hidden_features, use_bias=bias[0])
+        self.act = self.act_layer
+        self.drop1 = nn.Dropout(drop_probs[0])
+        self.fc2 = nn.Dense(out_features, use_bias=bias[1])
+        self.drop2 = nn.Dropout(drop_probs[1])
+    
+    def __call__(self, x, train):
+        x = self.fc1(x)
+        x = self.act(x)
+        x = self.drop1(x, deterministic=not train)
+        x = self.fc2(x)
+        x = self.drop2(x, deterministic=not train)
+        return x
+
+class Mlp(nn.Module):
     @nn.compact
     def __call__(self, x, train):
-        x = nn.Dense(hidden_features, use_bias=bias[0], name="fc1")(x)
-        x = self.act(x)
-        x = nn.Dropout(drop_probs[0], name="drop1")(x, deterministic=not train)
-        x = nn.Dense(out_features, use_bias=bias[1], name="fc2")(x)
-        x = nn.Dropout(drop_probs[1], name="drop2")(x, deterministic=not train)
-        return x
+        VmapMlp = nn.vmap(_Mlp, in_axes=0, variable_axes={"params", None}, split_rngs={"params": False, "dropout": True})
+        return VmapMlp(x=x, train=train)
 
 class Attention(nn.Module):
     dim : int

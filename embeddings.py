@@ -36,7 +36,7 @@ class PatchEmbedding_(nn.Module):
         
     def __call__(self, X):
         """
-        images: [batch_size, nb_colors, height, width]
+        image: [nb_colors, height, width]
         """
         
         height, width, nb_colors = X.shape
@@ -46,9 +46,8 @@ class PatchEmbedding_(nn.Module):
         embedding = self.embedding_layer(X)
         embedding = jnp.transpose(embedding, axes=(2,0,1))
         
-        
         if self.flatten:
-            embedding = jnp.reshape(embedding, (-1, embedding.shape[1]))
+            embedding = jnp.reshape(embedding, (-1, embedding.shape[0]))
 
         # normalize the embeddings of the patches
         embedding = self.norm(embedding)

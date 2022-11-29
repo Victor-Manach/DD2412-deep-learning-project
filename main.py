@@ -13,7 +13,6 @@ def main():
     # load the dataset
     t1 = time.time()
     train_data, val_data, test_data = load_datasets.build_train_dataset(dataset=dataset_name, split=split, batch_size=256)
-    print(next(iter(train_data))[0][0].shape)
     print(f"Time to load the datasets: {time.time()-t1:.4f}s")
     
     # import the model

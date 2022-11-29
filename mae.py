@@ -184,4 +184,4 @@ class MAEViT(nn.Module):
     @nn.compact
     def __call__(self, x, train, key, masked_ratio=.75):
         VmapMAEViT = nn.vmap(_MAEViT, variable_axes={'params': 0, 'batch_stats': 0}, split_rngs={'params': True}, in_axes=0)
-        return VmapMAEViT()(x=x, train=train, key=key, masked_ratio=masked_ratio)
+        return VmapMAEViT(x=x, train=train, key=key, masked_ratio=masked_ratio)
