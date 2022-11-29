@@ -45,7 +45,7 @@ class Mlp(nn.Module):
     @nn.compact
     def __call__(self, x, train):
         VmapMlp = nn.vmap(_Mlp, in_axes=0, variable_axes={"params", None}, split_rngs={"params": False, "dropout": True})
-        return VmapMlp(x=x, train=train)
+        return VmapMlp()(x=x, train=train)
 
 class _Attention(nn.Module):
     dim : int
