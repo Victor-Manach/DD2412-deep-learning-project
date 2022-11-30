@@ -46,66 +46,13 @@ class MAEViT(nn.Module):
         self.decoder_norm_layer = nn.LayerNorm()
         self.decoder_prediction = nn.Dense(self.patch_size**2 * self.nb_channels, use_bias = True)
     
-    @partial(jax.vmap, in_axes=(None, 0), out_axes=0)
-    def create_patches(self, x):
-        """
-        Given an image, create a list of patches for that image
-        Use jax.vmap to extend the function to a batch of images
-        """
-        p = self.patch_size
-        h = w = x.shape[1] // p
-        x_patches = x.reshape((3, h, p, w, p))
-        x_patches = jnp.einsum("chpwq->hwpqc", x_patches)
-        x_patches = x.reshape((h * w, p**2 * 3))
-        
-        return x_patches
-    
-    @partial(jax.vmap, in_axes=(None, 0), out_axes=0)
-    def recreate_images(self, x):
-        """
-        Given a list of patches, recreate the corresponding image
-        Use jax.vmap to extend the function to a batch of list of patches
-        """
-        p = self.patch_size
-        h = w = int(x.shape[0]**.5)
-        
-        x = x.reshape((h, w, p, p, 3))
-        x = jnp.einsum('hwpqc->chpwq', x)
-        imgs = x.reshape((3, h * p, h * p))
-        
-        return imgs
-    
-    @partial(jax.vmap, in_axes=(None, 0, None, 0), out_axes=0)
-    def random_masking(self, x, mask_ratio, key):
-        """
-        Perform a random masking on the embeddings of the patches
-        x: (batch size, number of patches, embedding dimension)
-        """
-        L, D = x.shape
-        keep = int(L*(1-mask_ratio))
-        
-        # shuffle indices
-        noise = jax.random.uniform(key, shape=(L,))
-        ids_shuffle = jnp.argsort(noise)
-        ids_restore = jnp.argsort(ids_shuffle)
-        
-        ids_keep = ids_shuffle[:keep]
-        x_masked = x[ids_keep, :]
-        
-        # generate the binary mask: 0 is keep, 1 is remove
-        mask = jnp.ones(L)
-        mask = mask.at[:keep].set(0.)
-        mask = mask[ids_restore]
-        
-        return x_masked, mask, ids_restore
-    
     def encoder(self, x, mask_ratio, train, key):
         x = self.patch_embed(x)
         
         x += self.position_embedding[:, 1:, :]
         
         keys = jax.random.split(key, x.shape[0])
-        x, mask, ids_restore = self.random_masking(x, mask_ratio, keys)
+        x, mask, ids_restore = random_masking(x, mask_ratio, keys)
         
         cls_token = self.cls_token + self.position_embedding[:, :1, :]
         cls_tokens = jnp.tile(cls_token, (x.shape[0], 1, 1))
@@ -145,9 +92,70 @@ class MAEViT(nn.Module):
         return x
     
     def __call__(self, x, train, key, mask_ratio=.75):
+        t1 = time.time()
         z, mask, ids_restore = self.encoder(x=x, mask_ratio=mask_ratio, train=train, key=key)
+        print("(MAE forward) Time to compute encoder forward: {:.4f}s".format(time.time()-t1))
+        
+        t1 = time.time()
         y = self.decoder(x=z, ids_restore=ids_restore, train=train)  # [N, L, p*p*3]
+        print("(MAE forward) Time to compute decoder forward: {:.4f}s".format(time.time()-t1))
         return y, mask
+
+@partial(jax.jit, static_argnames="p")
+@partial(jax.vmap, in_axes=(0, None), out_axes=0)
+def create_patches(x, p):
+    """
+    Given an image, create a list of patches for that image
+    Use jax.vmap to extend the function to a batch of images
+    """
+    #p = self.patch_size
+    h = w = x.shape[1] // p
+    x_patches = x.reshape((3, h, p, w, p))
+    x_patches = jnp.einsum("chpwq->hwpqc", x_patches)
+    x_patches = x.reshape((h * w, p**2 * 3))
+    
+    return x_patches
+
+@partial(jax.jit, static_argnames="p")
+@partial(jax.vmap, in_axes=(0, None), out_axes=0)
+def recreate_images(x, p):
+    """
+    Given a list of patches, recreate the corresponding image
+    Use jax.vmap to extend the function to a batch of list of patches
+    """
+    #p = self.patch_size
+    h = w = int(x.shape[0]**.5)
+    
+    x = x.reshape((h, w, p, p, 3))
+    x = jnp.einsum('hwpqc->chpwq', x)
+    imgs = x.reshape((3, h * p, h * p))
+    
+    return imgs
+
+@partial(jax.jit, static_argnames="mask_ratio")
+@partial(jax.vmap, in_axes=(0, None, 0), out_axes=0)
+def random_masking(x, mask_ratio, key):
+    """
+    Perform a random masking on the embeddings of the patches
+    x: (batch size, number of patches, embedding dimension)
+    """
+    L, D = x.shape
+    keep = int(L*(1-mask_ratio))
+    
+    # shuffle indices
+    noise = jax.random.uniform(key, shape=(L,))
+    ids_shuffle = jnp.argsort(noise)
+    ids_restore = jnp.argsort(ids_shuffle)
+    
+    ids_keep = ids_shuffle[:keep]
+    x_masked = x[ids_keep, :]
+    
+    # generate the binary mask: 0 is keep, 1 is remove
+    mask = jnp.ones(L)
+    mask = mask.at[:keep].set(0.)
+    mask = mask[ids_restore]
+    
+    return x_masked, mask, ids_restore
 
 def mae_loss(model, params, x, train, key):
     """
@@ -156,12 +164,16 @@ def mae_loss(model, params, x, train, key):
     mask: [N, L], 0 is keep, 1 is remove, 
     """
     key, dropout_apply_rng, masked_rng = jax.random.split(key, 3)
-    target = model.create_patches(x)
+    t1 = time.time()
+    target = create_patches(x, model.patch_size)
+    print("(Loss func) Time spent to create the patches: {:.4f}s".format(time.time()-t1))
 
+    t1 = time.time()
     y, mask = model.apply({'params': params}, x=x, train=train, key=masked_rng, rngs={'dropout': dropout_apply_rng})
+    print("(Loss func) Time spent to forward model: {:.4f}s".format(time.time()-t1))
+    
     loss = jnp.mean(jnp.square(y - target), axis=-1) # [N, L], mean loss per patch
-
-    loss = jnp.sum((loss * mask)) / jnp.sum(mask)  # mean loss on removed patches
+    loss = jnp.sum(loss * mask) / jnp.sum(mask)  # mean loss on removed patches
     return loss, key
 
 def mae_norm_pix_loss(model, params, x, train, key):
@@ -171,9 +183,9 @@ def mae_norm_pix_loss(model, params, x, train, key):
     mask: [N, L], 0 is keep, 1 is remove, 
     """
     key, dropout_apply_rng, masked_rng = jax.random.split(key, 3)
-    target = model.create_patches(x)
+    target = create_patches(x, model.patch_size)
     mean = jnp.mean(target, axis=-1, keepdims=True)
-    var = jnp.var(target, axis=-1, keepdim=True)
+    var = jnp.var(target, axis=-1, keepdims=True)
     target = (target - mean) / (var + 1.e-6)**.5
 
     y, mask = model.apply({'params': params}, x=x, train=train, key=masked_rng, rngs={'dropout': dropout_apply_rng})

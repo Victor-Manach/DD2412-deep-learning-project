@@ -38,13 +38,13 @@ class TrainModule:
             loss_func = mae_loss
         def train_step(state, batch, key):
             loss_fn = lambda params: loss_func(model=self.model, params=params, x=batch, train=True, key=key)
-            t1 = time.time()
+            #t1 = time.time()
             ret, grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)  # Get loss and gradients for loss
             loss, key = ret[0], ret[1]
-            print(f"Time to compute the gradient of the loss func: {time.time()-t1:.4f}s")
-            t1 = time.time()
+            #print(f"(Train step) Time to compute the gradient of the loss func: {time.time()-t1:.4f}s")
+            #t1 = time.time()
             state = state.apply_gradients(grads=grads)  # Optimizer update step
-            print(f"Time to update the gradient parameters: {time.time()-t1:.4f}s")
+            #print(f"(Train step) Time to update the gradient parameters: {time.time()-t1:.4f}s")
             return state, loss, key
         self.train_step = jax.jit(train_step)
         # Eval function
@@ -76,28 +76,38 @@ class TrainModule:
     def train_model(self, train_data, val_data, num_epochs=500):
         # Train model for defined number of epochs
         best_eval = np.inf
-        for epoch_idx in tqdm(range(1, num_epochs+1)):
-            self.train_epoch(train_data=train_data, epoch=epoch_idx)
+        pbar = tqdm(total=num_epochs)
+        for epoch_idx in range(1, num_epochs+1):
+            t1 = time.time()
+            avg_loss = self.train_epoch(train_data=train_data, epoch=epoch_idx)
+            pbar.set_description(f"Epoch {epoch_idx} - avg loss {avg_loss:.4f} - train epoch time {time.time()-t1}s")
+            pbar.update(1)
             if epoch_idx % 10 == 0:
                 eval_loss = self.eval_model(val_data)
-                print(f"Epoch {epoch_idx}: val_loss={eval_loss:.5f}")
+                #print(f"Epoch {epoch_idx}: val_loss={eval_loss:.4f}")
                 if eval_loss < best_eval:
                     best_eval = eval_loss
                     self.save_model(step=epoch_idx)
+        pbar.close()
         return self.state.params
 
     def train_epoch(self, train_data, epoch):
         # Train model for one epoch, and log avg loss
         losses = []
+        pbar = tqdm(len(train_data))
         for batch in train_data:
-            print("Call the train_step inside train_epoch")
+            #print("(Train epoch) Call the train_step inside train_epoch")
             t1 = time.time()
             self.state, loss, self.rng = self.train_step(self.state, batch, self.rng)
-            print(f"Finished train_step: {time.time()-t1}")
+            pbar.set_description(f"Epoch {epoch} - train loss {loss:.4f} - train step time {time.time()-t1}s")
+            pbar.update(1)
+            #print(f"(Train epoch) Finished train_step: {time.time()-t1:.4f}s")
             losses.append(loss)
+        pbar.close()
         losses_np = np.stack(jax.device_get(losses))
         avg_loss = losses_np.mean()
-        print(f"Epoch {epoch}: avg_train_loss={avg_loss:.5f}")
+        #print(f"Epoch {epoch}: avg_train_loss={avg_loss:.4f}")
+        return avg_loss
 
     def eval_model(self, data_loader):
         # Test model on all images of a data loader and return avg loss
