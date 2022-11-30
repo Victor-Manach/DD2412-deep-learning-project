@@ -20,7 +20,7 @@ def main():
     # import the model
     t1 = time.time()
     """
-    model_mae = mae.MAEViT(img_size=224,
+    model_mae = mae.MAEViT(img_size=112,
                        patch_size=16,
                        nb_channels=3,
                        embed_dim=16, # 1024
