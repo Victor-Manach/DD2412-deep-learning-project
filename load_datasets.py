@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow_datasets as tfds
 
 def resize(image):
-    image = tf.image.resize_with_pad(image["image"], 224, 224)
+    image = tf.image.resize_with_pad(image["image"], 112, 112)
     #image = np.einsum("hwc->chw", image) # einsum and transpose create the same image
     image = tf.transpose(image, perm=[2,0,1])
     return image / 255.0
