@@ -94,7 +94,7 @@ class TrainModule:
     def train_epoch(self, train_data, epoch):
         # Train model for one epoch, and log avg loss
         losses = []
-        pbar = tqdm(len(train_data))
+        pbar = tqdm(total=len(train_data))
         for batch in train_data:
             #print("(Train epoch) Call the train_step inside train_epoch")
             t1 = time.time()

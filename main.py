@@ -33,7 +33,7 @@ def main():
                        norm_pix_loss=False)
     """
     
-    model_mae = mae.MAEViT(img_size=224,
+    model_mae = mae.MAEViT(img_size=112,
                     patch_size=16,
                     nb_channels=3,
                     embed_dim=128, # 1024
