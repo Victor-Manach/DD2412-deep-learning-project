@@ -92,13 +92,13 @@ class MAEViT(nn.Module):
         return x
     
     def __call__(self, x, train, key, mask_ratio=.75):
-        t1 = time.time()
+        #t1 = time.time()
         z, mask, ids_restore = self.encoder(x=x, mask_ratio=mask_ratio, train=train, key=key)
-        print("(MAE forward) Time to compute encoder forward: {:.4f}s".format(time.time()-t1))
+        #print("(MAE forward) Time to compute encoder forward: {:.4f}s".format(time.time()-t1))
         
-        t1 = time.time()
+        #t1 = time.time()
         y = self.decoder(x=z, ids_restore=ids_restore, train=train)  # [N, L, p*p*3]
-        print("(MAE forward) Time to compute decoder forward: {:.4f}s".format(time.time()-t1))
+        #print("(MAE forward) Time to compute decoder forward: {:.4f}s".format(time.time()-t1))
         return y, mask
 
 @partial(jax.jit, static_argnames="p")
@@ -164,13 +164,13 @@ def mae_loss(model, params, x, train, key):
     mask: [N, L], 0 is keep, 1 is remove, 
     """
     key, dropout_apply_rng, masked_rng = jax.random.split(key, 3)
-    t1 = time.time()
+    #t1 = time.time()
     target = create_patches(x, model.patch_size)
-    print("(Loss func) Time spent to create the patches: {:.4f}s".format(time.time()-t1))
+    #print("(Loss func) Time spent to create the patches: {:.4f}s".format(time.time()-t1))
 
-    t1 = time.time()
+    #t1 = time.time()
     y, mask = model.apply({'params': params}, x=x, train=train, key=masked_rng, rngs={'dropout': dropout_apply_rng})
-    print("(Loss func) Time spent to forward model: {:.4f}s".format(time.time()-t1))
+    #print("(Loss func) Time spent to forward model: {:.4f}s".format(time.time()-t1))
     
     loss = jnp.mean(jnp.square(y - target), axis=-1) # [N, L], mean loss per patch
     loss = jnp.sum(loss * mask) / jnp.sum(mask)  # mean loss on removed patches

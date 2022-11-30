@@ -80,7 +80,7 @@ class TrainModule:
         for epoch_idx in range(1, num_epochs+1):
             t1 = time.time()
             avg_loss = self.train_epoch(train_data=train_data, epoch=epoch_idx)
-            pbar.set_description(f"Epoch {epoch_idx} - avg loss {avg_loss:.4f} - train epoch time {time.time()-t1}s")
+            pbar.set_description(f"Epoch {epoch_idx} - avg loss {avg_loss:.4f} - train epoch time {time.time()-t1:.4f}s")
             pbar.update(1)
             if epoch_idx % 10 == 0:
                 eval_loss = self.eval_model(val_data)
@@ -99,7 +99,7 @@ class TrainModule:
             #print("(Train epoch) Call the train_step inside train_epoch")
             t1 = time.time()
             self.state, loss, self.rng = self.train_step(self.state, batch, self.rng)
-            pbar.set_description(f"Epoch {epoch} - train loss {loss:.4f} - train step time {time.time()-t1}s")
+            pbar.set_description(f"Epoch {epoch} - train loss {loss:.4f} - train step time {time.time()-t1:.4f}s")
             pbar.update(1)
             #print(f"(Train epoch) Finished train_step: {time.time()-t1:.4f}s")
             losses.append(loss)

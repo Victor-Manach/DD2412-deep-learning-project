@@ -9,16 +9,16 @@ def main():
     num_epochs = 2
     seed = 42
     # split represents [test_set, validation_set, train_set]
-    dataset_name, split = "imagenette/160px-v2", ["validation", "train[:20%]", "train[20%:]"]
-    #dataset_name, split = "mnist", ["test", "train[:20%]", "train[20%:]"]
+    #dataset_name, split, img_size, patch_size = "imagenette/160px-v2", ["validation", "train[:20%]", "train[20%:]"], 112, 16
+    dataset_name, split, img_size, patch_size = "mnist", ["test", "train[:20%]", "train[20%:]"], 28, 4
+    #dataset_name, split, img_size, patch_size = "cifar10", ["test", "train[:20%]", "train[20%:]"], 32, 4
     
     # load the dataset
     t1 = time.time()
-    train_data, val_data, test_data = load_datasets.build_train_dataset(dataset=dataset_name, split=split, batch_size=256)
+    train_data, val_data, test_data = load_datasets.build_train_dataset(dataset=dataset_name, split=split, batch_size=256, img_size=img_size)
     print(f"Time to load the datasets: {time.time()-t1:.4f}s")
     
     # import the model
-    t1 = time.time()
     """
     model_mae = mae.MAEViT(img_size=112,
                        patch_size=16,
@@ -33,8 +33,8 @@ def main():
                        norm_pix_loss=False)
     """
     
-    model_mae = mae.MAEViT(img_size=112,
-                    patch_size=16,
+    model_mae = mae.MAEViT(img_size=img_size,
+                    patch_size=patch_size,
                     nb_channels=3,
                     embed_dim=128, # 1024
                     encoder_depth=8, # 24
@@ -44,8 +44,6 @@ def main():
                     decoder_num_heads=4, # 16
                     mlp_ratio=2., # 4
                     norm_pix_loss=True)
-    
-    print(f"Time to create the mae model: {time.time()-t1:.4f}s")
     
     # train the model
     print("Starting training phase")
