@@ -52,7 +52,7 @@ class PatchEmbedding(nn.Module):
         embedding = self.norm(embedding)
         return embedding
 
-@jax.jit(static_argnames=["nb_patches", "embedding_dim", "cls_token"])
+@partial(jax.jit, static_argnames=["nb_patches", "embedding_dim", "cls_token"])
 def position_embedding(nb_patches, embedding_dim, cls_token=False):
     """
     Compute the 2d sine-cosine position embedding of the patches given their positions

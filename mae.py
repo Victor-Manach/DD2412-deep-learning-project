@@ -157,7 +157,6 @@ def random_masking(x, mask_ratio, key):
     
     return x_masked, mask, ids_restore
 
-@jax.jit
 def mae_loss(model, params, x, train, key):
     """
     x: [N, 3, H, W]
@@ -177,7 +176,6 @@ def mae_loss(model, params, x, train, key):
     loss = jnp.sum(loss * mask) / jnp.sum(mask)  # mean loss on removed patches
     return loss, key
 
-@jax.jit
 def mae_norm_pix_loss(model, params, x, train, key):
     """
     x: [N, 3, H, W]
