@@ -1,12 +1,13 @@
 import jax
 import mae
-import load_datasets
+import load_datasets_tf
+import load_datasets_torch
 from train_mae import TrainModule
 from plot_images import run_one_image
 import time
 
 def main():
-    num_epochs = 50
+    num_epochs = 500
     seed = 42
     # split represents [test_set, validation_set, train_set]
     #dataset_name, split, img_size, patch_size = "imagenette/160px-v2", ["validation", "train[:20%]", "train[20%:]"], 112, 16
@@ -15,7 +16,8 @@ def main():
     
     # load the dataset
     t1 = time.time()
-    train_data, val_data, test_data = load_datasets.build_train_dataset(dataset=dataset_name, split=split, batch_size=256, img_size=img_size)
+    train_data, val_data, test_data = load_datasets_tf.build_train_dataset(dataset=dataset_name, split=split, batch_size=256, img_size=img_size)
+    #train_data, val_data, test_data = load_datasets_torch.build_train_dataset(dataset=dataset_name, split=split, batch_size=256, img_size=img_size)
     print(f"Time to load the datasets: {time.time()-t1:.4f}s")
     
     # import the model
