@@ -27,7 +27,8 @@ def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae"):
     y_img = jnp.einsum('nchw->nhwc', y_img)
     
     # compute the loss before the mask is reshapped
-    print("Loss on one image: {:.4f}".format(jnp.sum(jnp.mean(jnp.square(y - target), axis=-1)*mask) / jnp.sum(mask)))
+    loss = jnp.sum(jnp.mean(jnp.square(y - target), axis=-1)*mask) / jnp.sum(mask)
+    print("Loss on one image: {:.4f}".format(loss))
 
     # visualize the mask
     mask = jnp.expand_dims(mask, -1)
@@ -45,7 +46,7 @@ def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae"):
 
     # make the plt figure larger
     plt.rcParams['figure.figsize'] = [24, 24]
-    plt.suptitle(f"Reconstructed image from {dataset_name} dataset")
+    plt.suptitle(f"Reconstructed image from {dataset_name} dataset | Loss = {loss:.4f}")
 
     plt.subplot(1, 4, 1)
     show_image(x[0], "original")
