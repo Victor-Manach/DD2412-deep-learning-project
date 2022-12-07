@@ -9,7 +9,7 @@ from flax.training import train_state, checkpoints
 import flax.linen as nn
 from tqdm.auto import tqdm
 
-from mae import mae_loss, mae_norm_pix_loss
+from mae import mae_loss, mae_norm_pix_loss, create_patches
 
 # Path to the folder where the pretrained models are saved
 CHECKPOINT_PATH = "./saved_models/"
@@ -37,27 +37,38 @@ class TrainModule:
         else:
             loss_func = mae_loss
         def train_step(state, batch, key):
-            loss_fn = lambda params: loss_func(model=self.model, params=params, x=batch, train=True, key=key)
+            key, rng = jax.random.split(key)
+            def loss_fn(params):
+                target = create_patches(batch, self.model.patch_size)
+                y, mask = state.apply_fn(**batch, params=params, key=rng, train=True)
+                
+                loss = jnp.mean(jnp.square(y - target), axis=-1)
+                loss = jnp.sum(loss * mask) / jnp.sum(mask)
+                return loss
+            # loss_fn = lambda params: loss_func(model=self.model, params=params, x=batch, train=True, key=key)
             #t1 = time.time()
-            ret, grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)  # Get loss and gradients for loss
-            loss, key = ret[0], ret[1]
+            loss, grads = jax.value_and_grad(loss_fn)(state.params)  # Get loss and gradients for loss
+            # ret, grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)  # Get loss and gradients for loss
+            # loss, key = ret[0], ret[1]
             #print(f"(Train step) Time to compute the gradient of the loss func: {time.time()-t1:.4f}s")
             #t1 = time.time()
             state = state.apply_gradients(grads=grads)  # Optimizer update step
             #print(f"(Train step) Time to update the gradient parameters: {time.time()-t1:.4f}s")
             return state, loss, key
         self.train_step = jax.jit(train_step)
+        # self.parallel_train_step = jax.pmap(train_step, "batch")
         # Eval function
         def eval_step(state, batch, key):
             loss, rng = mae_loss(model=self.model, params=state.params, x=batch, train=False, key=key)
             return loss, rng
         self.eval_step = jax.jit(eval_step)
+        # self.parallel_eval_step = jax.pmap(eval_step, "batch")
 
     def init_model(self, train_data):
         # Initialize model
         self.rng = jax.random.PRNGKey(self.seed)
-        self.rng, init_rng, dropout_init_rng, masking_rng = jax.random.split(self.rng, 4)
-        params = self.model.init({"params": init_rng, "dropout": dropout_init_rng}, x=self.exmp_imgs, train=True, key=masking_rng)["params"]
+        self.rng, init_rng, dropout_init_rng, drop_path_init_rng, masking_rng = jax.random.split(self.rng, 5)
+        params = self.model.init({"params": init_rng, "dropout": dropout_init_rng, "drop_path": drop_path_init_rng}, x=self.exmp_imgs, train=True, key=masking_rng)["params"]
         # Initialize learning rate schedule and optimizer
         lr_schedule = optax.warmup_cosine_decay_schedule(
             init_value=0.0,
@@ -68,7 +79,7 @@ class TrainModule:
         )
         optimizer = optax.chain(
             optax.clip(1.0),  # Clip gradients at 1
-            optax.adam(lr_schedule)
+            optax.adamw(lr_schedule) # optax.adam(lr_schedule)
         )
         # Initialize training state
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=params, tx=optimizer)
@@ -124,16 +135,9 @@ class TrainModule:
 
     def save_model(self, step=0):
         # Save current model at certain training iteration
-        checkpoints.save_checkpoint(ckpt_dir=self.log_dir, target=self.state.params, prefix=self.dataset_name, step=step, overwrite=True)
+        checkpoints.save_checkpoint(ckpt_dir=self.log_dir, target=self.state.params, prefix=f"{self.dataset_name}_", step=step, overwrite=True)
     
-    def load_model(self, pretrained=False):
+    def load_model(self):
         # Load model. We use different checkpoint for pretrained models
-        if not pretrained:
-            params = checkpoints.restore_checkpoint(ckpt_dir=self.log_dir, target=self.state.params, prefix=self.dataset_name)
-        else:
-            params = checkpoints.restore_checkpoint(ckpt_dir=os.path.join(CHECKPOINT_PATH, f"{self.dataset_name}.ckpt"), target=self.state.params)
+        params = checkpoints.restore_checkpoint(ckpt_dir=self.log_dir, target=self.state.params, prefix=self.dataset_name)
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=params, tx=self.state.tx)
-
-    def checkpoint_exists(self):
-        # Check whether a pretrained model exist for this autoencoder
-        return os.path.isfile(os.path.join(CHECKPOINT_PATH, f"{self.dataset_name}.ckpt"))

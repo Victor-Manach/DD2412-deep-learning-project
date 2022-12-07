@@ -7,6 +7,7 @@ from plot_images import run_one_image
 import time
 
 def main():
+    print(f"Available devices ({jax.local_device_count()} devices): {jax.devices()}")
     num_epochs = 500
     seed = 42
     # split represents [test_set, validation_set, train_set]
@@ -45,7 +46,7 @@ def main():
                     decoder_depth=2, # 8
                     decoder_num_heads=4, # 16
                     mlp_ratio=2., # 4
-                    norm_pix_loss=True)
+                    norm_pix_loss=False)
     
     # train the model
     print("Starting training phase")
@@ -62,7 +63,7 @@ def main():
     
     key = jax.random.PRNGKey(seed)
     img = next(iter(train_data))[0]
-    run_one_image(img, model_mae, params_mae, key=key)
+    run_one_image(img, model_mae, params_mae, key=key, epochs=num_epochs, dataset_name=dataset_name.upper())
     
 if __name__ == '__main__':
     main()
