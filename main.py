@@ -3,7 +3,7 @@ import mae
 import load_datasets_tf
 import load_datasets_torch
 from train_mae import TrainModule
-from plot_images import run_one_image
+from plot_images import run_one_image, plot_train_loss
 import time
 
 def main():
@@ -52,7 +52,8 @@ def main():
     print("Starting training phase")
     t1 = time.time()
     trainer = TrainModule(model=model_mae, train=train_data, exmp_imgs=next(iter(val_data))[:8], dataset_name=dataset_name, seed=seed)
-    trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs)
+    train_losses = trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs)
+    plot_train_loss(train_losses)
     print(f"End of training phase: {time.time()-t1:.4f}s")
     
     # evaluate the model on the train and test sets

@@ -78,6 +78,7 @@ class TrainModule:
 
     def train_model(self, train_data, val_data, num_epochs=500):
         # Train model for defined number of epochs
+        avg_losses = []
         pbar = tqdm(total=num_epochs)
         for epoch_idx in range(1, num_epochs+1):
             t1 = time.time()
@@ -86,7 +87,9 @@ class TrainModule:
             pbar.update(1)
             if epoch_idx % 100 == 0:
                 self.save_model(step=epoch_idx) # save the model every 100 epochs
+            avg_losses.append(avg_loss)
         pbar.close()
+        return np.asarray(avg_losses)
 
     def train_epoch(self, train_data, epoch):
         # Train model for one epoch, and log avg loss

@@ -62,3 +62,11 @@ def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae"):
 
     #plt.show()
     plt.savefig(f"./figures/{prefix}_{epochs}.png", dpi=600)
+
+def plot_train_loss(train_losses):
+    plt.rcParams['figure.figsize'] = [12, 12]
+    plt.plot(train_losses)
+    plt.title("Evolution of the train loss with respect to the number of epochs")
+    plt.xlabel("Epochs")
+    plt.ylabel("Average loss per epoch")
+    plt.savefig("./figures/train_loss.png", dpi=600)
