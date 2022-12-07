@@ -15,9 +15,8 @@ from mae import mae_loss, mae_norm_pix_loss, create_patches
 CHECKPOINT_PATH = "./saved_models/"
 
 class TrainModule:
-    def __init__(self, model, train, exmp_imgs, dataset_name, seed=42, lr=1e-3):
+    def __init__(self, model, train, exmp_imgs, dataset_name, seed=42):
         super().__init__()
-        self.lr = lr
         self.seed = seed
         # Create empty model. Note: no parameters yet
         self.model = model
@@ -38,18 +37,11 @@ class TrainModule:
             loss_func = mae_loss
         def train_step(state, batch, key):
             key, rng = jax.random.split(key)
-            def loss_fn(params):
-                target = create_patches(batch, self.model.patch_size)
-                y, mask = state.apply_fn(**batch, params=params, key=rng, train=True)
-                
-                loss = jnp.mean(jnp.square(y - target), axis=-1)
-                loss = jnp.sum(loss * mask) / jnp.sum(mask)
-                return loss
-            # loss_fn = lambda params: loss_func(model=self.model, params=params, x=batch, train=True, key=key)
+            loss_fn = lambda params: loss_func(model=self.model, params=params, x=batch, train=True, key=key)
             #t1 = time.time()
-            loss, grads = jax.value_and_grad(loss_fn)(state.params)  # Get loss and gradients for loss
-            # ret, grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)  # Get loss and gradients for loss
-            # loss, key = ret[0], ret[1]
+            #loss, grads = jax.value_and_grad(loss_fn)(state.params)  # Get loss and gradients for loss
+            ret, grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)  # Get loss and gradients for loss
+            loss, key = ret[0], ret[1]
             #print(f"(Train step) Time to compute the gradient of the loss func: {time.time()-t1:.4f}s")
             #t1 = time.time()
             state = state.apply_gradients(grads=grads)  # Optimizer update step
@@ -86,21 +78,15 @@ class TrainModule:
 
     def train_model(self, train_data, val_data, num_epochs=500):
         # Train model for defined number of epochs
-        best_eval = np.inf
         pbar = tqdm(total=num_epochs)
         for epoch_idx in range(1, num_epochs+1):
             t1 = time.time()
             avg_loss = self.train_epoch(train_data=train_data, epoch=epoch_idx)
             pbar.set_description(f"Epoch {epoch_idx} - avg loss {avg_loss:.4f} - train epoch time {time.time()-t1:.4f}s")
             pbar.update(1)
-            if epoch_idx % 10 == 0:
-                eval_loss = self.eval_model(val_data)
-                #print(f"Epoch {epoch_idx}: val_loss={eval_loss:.4f}")
-                if eval_loss < best_eval:
-                    best_eval = eval_loss
-                    self.save_model(step=epoch_idx)
+            if epoch_idx % 100 == 0:
+                self.save_model(step=epoch_idx) # save the model every 100 epochs
         pbar.close()
-        return self.state.params
 
     def train_epoch(self, train_data, epoch):
         # Train model for one epoch, and log avg loss
@@ -127,7 +113,7 @@ class TrainModule:
         for batch in data_loader:
             loss, self.rng = self.eval_step(self.state, batch, self.rng)
             losses.append(loss)
-            batch_sizes.append(batch[0].shape[0])
+            batch_sizes.append(batch.shape[0])
         losses_np = np.stack(jax.device_get(losses))
         batch_sizes_np = np.stack(batch_sizes)
         avg_loss = (losses_np * batch_sizes_np).sum() / batch_sizes_np.sum()

@@ -52,7 +52,7 @@ def main():
     print("Starting training phase")
     t1 = time.time()
     trainer = TrainModule(model=model_mae, train=train_data, exmp_imgs=next(iter(val_data))[:8], dataset_name=dataset_name, seed=seed)
-    params_mae = trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs)
+    trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs)
     print(f"End of training phase: {time.time()-t1:.4f}s")
     
     # evaluate the model on the train and test sets
@@ -63,7 +63,7 @@ def main():
     
     key = jax.random.PRNGKey(seed)
     img = next(iter(train_data))[0]
-    run_one_image(img, model_mae, params_mae, key=key, epochs=num_epochs, dataset_name=dataset_name.upper())
+    run_one_image(img, model_mae, trainer.state.params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper())
     
 if __name__ == '__main__':
     main()
