@@ -8,12 +8,12 @@ import time
 
 def main():
     print(f"Available devices ({jax.local_device_count()} devices): {jax.devices()}")
-    num_epochs = 500
+    num_epochs = 50
     seed = 42
     # split represents [test_set, validation_set, train_set]
     #dataset_name, split, img_size, patch_size = "imagenette/160px-v2", ["validation", "train[:20%]", "train[20%:]"], 112, 16
-    dataset_name, split, img_size, patch_size = "mnist", ["test", "train[:20%]", "train[20%:]"], 28, 4
-    #dataset_name, split, img_size, patch_size = "cifar10", ["test", "train[:20%]", "train[20%:]"], 32, 4
+    #dataset_name, split, img_size, patch_size = "mnist", ["test", "train[:20%]", "train[20%:]"], 28, 4
+    dataset_name, split, img_size, patch_size = "cifar10", ["test", "train[:20%]", "train[20%:]"], 32, 4
     
     # load the dataset
     t1 = time.time()
@@ -39,13 +39,13 @@ def main():
     model_mae = mae.MAEViT(img_size=img_size,
                     patch_size=patch_size,
                     nb_channels=3,
-                    embed_dim=128, # 1024
-                    encoder_depth=8, # 24
-                    encoder_num_heads=4, # 16
-                    decoder_embed_dim=64, # 512
-                    decoder_depth=2, # 8
-                    decoder_num_heads=4, # 16
-                    mlp_ratio=2., # 4
+                    embed_dim=256, # 1024
+                    encoder_depth=16, # 24
+                    encoder_num_heads=8, # 16
+                    decoder_embed_dim=128, # 512
+                    decoder_depth=4, # 8
+                    decoder_num_heads=8, # 16
+                    mlp_ratio=4., # 4
                     norm_pix_loss=False)
     
     # train the model
@@ -64,6 +64,7 @@ def main():
     key = jax.random.PRNGKey(seed)
     img = next(iter(train_data))[0]
     run_one_image(img, model_mae, trainer.state.params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper())
+    trainer.save_model(step=num_epochs)
     
 if __name__ == '__main__':
     main()
