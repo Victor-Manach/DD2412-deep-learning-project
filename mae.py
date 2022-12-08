@@ -91,7 +91,7 @@ class MAEViT(nn.Module):
 
         return x
     
-    def __call__(self, x, train, key, mask_ratio=.75):
+    def __call__(self, x, train, key, mask_ratio=.25):
         #t1 = time.time()
         z, mask, ids_restore = self.encoder(x=x, mask_ratio=mask_ratio, train=train, key=key)
         #print("(MAE forward) Time to compute encoder forward: {:.4f}s".format(time.time()-t1))

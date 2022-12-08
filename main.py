@@ -8,7 +8,7 @@ import time
 
 def main():
     print(f"Available devices ({jax.local_device_count()} devices): {jax.devices()}")
-    num_epochs = 50
+    num_epochs = 100
     seed = 42
     # split represents [test_set, validation_set, train_set]
     #dataset_name, split, img_size, patch_size = "imagenette/160px-v2", ["validation", "train[:20%]", "train[20%:]"], 112, 16
