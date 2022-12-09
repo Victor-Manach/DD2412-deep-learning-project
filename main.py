@@ -6,6 +6,12 @@ from train_mae import TrainModule
 from plot_images import run_one_image, plot_train_loss
 import time
 
+def args_parser():
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--epochs', default=100, type=int)
+        return parser
+
+
 def main():
     print(f"Available devices ({jax.local_device_count()} devices): {jax.devices()}")
     num_epochs = 100
@@ -68,4 +74,6 @@ def main():
     trainer.save_model(step=num_epochs)
     
 if __name__ == '__main__':
-    main()
+    args = get_args_parser()
+    args = args.parse_args()
+    main(args)
