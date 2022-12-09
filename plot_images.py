@@ -46,7 +46,7 @@ def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae"):
 
     # make the plt figure larger
     plt.rcParams['figure.figsize'] = [24, 24]
-    plt.suptitle(f"Reconstructed image from {dataset_name} dataset | Loss = {loss:.4f}")
+    plt.suptitle(f"Reconstructed image from {dataset_name} dataset | Loss = {loss:.4f}", fontsize=20)
 
     plt.subplot(1, 4, 1)
     show_image(x[0], "original")
@@ -66,7 +66,7 @@ def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae"):
 def plot_train_loss(train_losses):
     plt.rcParams['figure.figsize'] = [12, 12]
     plt.plot(train_losses)
-    plt.title("Evolution of the train loss with respect to the number of epochs")
+    plt.title("Evolution of the train loss with respect to the number of epochs", fontsize=20)
     plt.xlabel("Epochs")
     plt.ylabel("Average loss per epoch")
     plt.savefig("./figures/train_loss.png", dpi=600)
