@@ -1,16 +1,9 @@
 import jax
 import mae
 import load_datasets_tf
-import load_datasets_torch
 from train_mae import TrainModule
 from plot_images import run_one_image, plot_train_loss
 import time
-
-def args_parser():
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--epochs', default=100, type=int)
-        return parser
-
 
 def main():
     print(f"Available devices ({jax.local_device_count()} devices): {jax.devices()}")
@@ -28,7 +21,7 @@ def main():
     print(f"Time to load the datasets: {time.time()-t1:.4f}s")
     
     # import the model
-    """
+    
     model_mae = mae.MAEViT(img_size=112,
                        patch_size=16,
                        nb_channels=3,
@@ -40,8 +33,8 @@ def main():
                        decoder_num_heads=4, # 16
                        mlp_ratio=2., # 4
                        norm_pix_loss=False)
-    """
     
+    """
     model_mae = mae.MAEViT(img_size=img_size,
                     patch_size=patch_size,
                     nb_channels=3,
@@ -53,7 +46,7 @@ def main():
                     decoder_num_heads=8, # 16
                     mlp_ratio=4., # 4
                     norm_pix_loss=False)
-    
+    """
     # train the model
     print("Starting training phase")
     t1 = time.time()
@@ -74,6 +67,4 @@ def main():
     trainer.save_model(step=num_epochs)
     
 if __name__ == '__main__':
-    args = get_args_parser()
-    args = args.parse_args()
-    main(args)
+    main()
