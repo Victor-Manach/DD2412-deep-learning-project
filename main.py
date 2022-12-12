@@ -22,13 +22,13 @@ def main():
     
     # import the model
     
-    model_mae = mae.MAEViT(img_size=112,
-                       patch_size=16,
+    model_mae = mae.MAEViT(img_size=img_size,
+                       patch_size=patch_size,
                        nb_channels=3,
-                       embed_dim=16, # 1024
+                       embed_dim=128, # 1024
                        encoder_depth=4, # 24
                        encoder_num_heads=4, # 16
-                       decoder_embed_dim=8, # 512
+                       decoder_embed_dim=64, # 512
                        decoder_depth=2, # 8
                        decoder_num_heads=4, # 16
                        mlp_ratio=2., # 4
