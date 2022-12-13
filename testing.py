@@ -7,6 +7,7 @@ from train_mae import TrainModule
 from plot_images import run_one_image, plot_train_loss
 import time
 from flax.training import checkpoints
+import numpy as np
 
 N = 5 # test on N images
 
