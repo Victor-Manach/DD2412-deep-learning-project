@@ -36,7 +36,7 @@ seed = 0
 key = jax.random.PRNGKey(seed)
 it = iter(train_data)
 for n in range(1,N+1):
+  key, rng = jax.random.split(key)
   img = next(it)[0]
-  
-  run_one_image(img, model_mae, params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper(), suffix = str(n))
+  run_one_image(img, model_mae, params, key=rng, epochs=num_epochs, dataset_name=dataset_name.upper(), suffix = str(n))
 
