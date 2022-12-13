@@ -14,7 +14,7 @@ def show_image(image, title=''):
     #plt.savefig(f"./figures/{filename}.png", dpi=600)
     return
 
-def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae"):
+def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae", suffix ="0"):
 	
     # make it a batch-like
     x = x[None]
@@ -61,7 +61,7 @@ def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae"):
     show_image(im_paste[0], "reconstruction + visible")
 
     #plt.show()
-    plt.savefig(f"./figures/{prefix}_{epochs}.png", dpi=600)
+    plt.savefig(f"./figures/{prefix}_{epochs}_{suffix}.png", dpi=600)
 
 def plot_train_loss(train_losses):
     plt.rcParams['figure.figsize'] = [12, 12]
