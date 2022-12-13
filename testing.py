@@ -9,7 +9,7 @@ import time
 from flax.training import checkpoints
 import numpy as np
 
-N = 10 # test on N images
+N = 5 # test on N images
 
 filename = "./saved_models/cifar10/" # name of the file containing the parameters of the model to test
 dataset_name, split, img_size, patch_size = "cifar10", ["test", "train[:20%]", "train[20%:]"], 32, 4
