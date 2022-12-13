@@ -38,4 +38,3 @@ for n in range(N):
   img = train_data[np.random.randint(len(train_data))]
   run_one_image(img, model_mae, params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper(), suffix = str(n))
 
-run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae", suffix = "n")
