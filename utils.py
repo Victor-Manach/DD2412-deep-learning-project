@@ -2,8 +2,7 @@ import flax.linen as nn
 import jax
 
 def jax_unstack(x, axis=0):
-    """
-    Equivalent of the torch.unbind function from PyTorch
+    """ Equivalent of the torch.unbind function from PyTorch
     """
     return [jax.lax.index_in_dim(x, i, axis, keepdims=False) for i in range(x.shape[axis])]
 

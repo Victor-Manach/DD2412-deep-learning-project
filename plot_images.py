@@ -6,18 +6,19 @@ import matplotlib.pyplot as plt
 from mae import recreate_images, create_patches
 
 def show_image(image, title=''):
-    # image is [H, W, 3]
-    assert image.shape[2] == 3
+    """ Inverse the normalization of the pixels and plot the image
+    """
+    assert image.shape[2] == 3 # image is [H, W, 3]
     plt.imshow(jnp.clip(image * 255, 0, 255).astype(np.int32))
     plt.title(title, fontsize=16)
     plt.axis('off')
-    #plt.savefig(f"./figures/{filename}.png", dpi=600)
     return
 
-def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae", suffix ="0"):
-	
-    # make it a batch-like
-    x = x[None]
+def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae", suffix="0"):
+    """ Run the model on a single image, plot the original image vs. the reconstructed image
+    and compute the loss for the given image. Save the results to a .png file.
+    """
+    x = x[None] # make it a batch-like
     
     target = create_patches(x, model.patch_size)
 
@@ -64,6 +65,9 @@ def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae", suf
     plt.savefig(f"./figures/{prefix}_{epochs}_{suffix}.png", dpi=600)
 
 def plot_train_loss(train_losses):
+    """ Given the average losses at each epoch of the training phase,
+    plot the evolution of the train loss with respect to the number of epochs.
+    """
     plt.rcParams['figure.figsize'] = [12, 12]
     plt.plot(train_losses)
     plt.title("Evolution of the train loss with respect to the number of epochs", fontsize=20)

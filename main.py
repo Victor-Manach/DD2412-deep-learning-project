@@ -1,3 +1,5 @@
+# Main function to create the MAE model, run the training and store the trained model
+
 import jax
 import mae
 import load_datasets_tf
@@ -7,11 +9,15 @@ import time
 
 def main():
     print(f"Available devices ({jax.local_device_count()} devices): {jax.devices()}")
+    # number of epochs for the training phase
     num_epochs = 100
+    # seed for the random numbers
     seed = 42
+    # whether to create a MAE model with a small or medium architecture
     small_architecture = False
-    # split represents [test_set, validation_set, train_set]
-    #dataset_name, split, img_size, patch_size = "imagenette/160px-v2", ["validation", "train[:20%]", "train[20%:]"], 112, 16
+    
+    # define the dataset that will be used for training: split represents [test_set, validation_set, train_set]
+    # the image and patch sizes vary with the dataset chosen
     #dataset_name, split, img_size, patch_size = "mnist", ["test", "train[:20%]", "train[20%:]"], 28, 4
     dataset_name, split, img_size, patch_size = "cifar10", ["test", "train[:20%]", "train[20%:]"], 32, 4
     
@@ -61,9 +67,12 @@ def main():
     print(f"Trained for {num_epochs} epochs: train_loss={train_loss:.5f}")
     print(f"Trained for {num_epochs} epochs: test_loss={test_loss:.5f}")
     
+    # run the model on a single image to visualize its reconstruction performance
     key = jax.random.PRNGKey(seed)
     img = next(iter(train_data))[0]
     run_one_image(img, model_mae, trainer.state.params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper())
+    
+    # save the trained model
     trainer.save_model(step=num_epochs)
     
 if __name__ == '__main__':
