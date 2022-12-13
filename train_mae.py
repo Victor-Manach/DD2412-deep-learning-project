@@ -1,3 +1,9 @@
+# Code copied from a jax tutorial and adapted to work with our model and loss functions
+# --------------------------------------------------------
+# References:
+# Jax tutorial: https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/JAX/tutorial6/Transformers_and_MHAttention.html
+# --------------------------------------------------------
+
 import os
 import time
 import numpy as np
@@ -9,7 +15,7 @@ from flax.training import train_state, checkpoints
 import flax.linen as nn
 from tqdm.auto import tqdm
 
-from mae import mae_loss, mae_norm_pix_loss, create_patches
+from mae import mae_loss, mae_norm_pix_loss
 
 # Path to the folder where the pretrained models are saved
 CHECKPOINT_PATH = "./saved_models/"

@@ -1,4 +1,4 @@
-# Code copied from the timm library and adapted to work using Jax, Flax and Objax libraries
+# Code copied from the timm library and adapted to work using Jax and Flax libraries
 # --------------------------------------------------------
 # References:
 # timm: https://github.com/rwightman/pytorch-image-models/tree/master/timm
