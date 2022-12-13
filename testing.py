@@ -9,7 +9,7 @@ import time
 from flax.training import checkpoints
 import numpy as np
 
-N = 5 # test on N images
+N = 10 # test on N images
 
 filename = "./saved_models/cifar10/" # name of the file containing the parameters of the model to test
 dataset_name, split, img_size, patch_size = "cifar10", ["test", "train[:20%]", "train[20%:]"], 32, 4
@@ -35,7 +35,7 @@ params = checkpoints.restore_checkpoint(ckpt_dir=filename, target=None, prefix=d
 seed = 0
 key = jax.random.PRNGKey(seed)
 
-for n in range(N):
-  img = iter(train_data)[np.random.randint(len(train_data))]
+for n in range(1,N+1):
+  img = next(iter(train_data))[0]
   run_one_image(img, model_mae, params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper(), suffix = str(n))
 
