@@ -8,7 +8,7 @@ from functools import partial
 
 class PatchEmbedding(nn.Module):
     """
-    Convert a 2D image to a list of patch embeddings
+    Convert a 2D image to a list of patch embeddings.
     """
     img_size : int = 224
     patch_size : int = 16
@@ -29,8 +29,6 @@ class PatchEmbedding(nn.Module):
         
         # 2D convolution with Flax
         self.embedding_layer = nn.Conv(features=self.embedding_dim, kernel_size=patch_size, strides=patch_size, use_bias=self.bias)
-        # 2D convolution with Objax
-        #self.embedding_layer = objax.nn.Conv2D(nin=self.nb_channels, nout=self.embedding_dim, k=patch_size, strides=patch_size)
         
         self.norm = self.normalize() if self.normalize else Identity()
         
@@ -55,7 +53,7 @@ class PatchEmbedding(nn.Module):
 @partial(jax.jit, static_argnames=["nb_patches", "embedding_dim", "cls_token"])
 def position_embedding(nb_patches, embedding_dim, cls_token=False):
     """
-    Compute the 2d sine-cosine position embedding of the patches given their positions
+    Compute the 2d sine-cosine position embedding of the patches given their positions.
     """
     
     position_embedding = np.zeros((nb_patches, embedding_dim))

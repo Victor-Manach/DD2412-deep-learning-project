@@ -36,6 +36,9 @@ class TrainModule:
         self.init_model(train)
 
     def create_functions(self):
+        """ Initialize the functions needed to train and evaluate the model and jit those functions
+        to speed up the computations.
+        """
         # Training function
         if self.model.norm_pix_loss:
             loss_func = mae_norm_pix_loss
@@ -63,6 +66,8 @@ class TrainModule:
         # self.parallel_eval_step = jax.pmap(eval_step, "batch")
 
     def init_model(self, train_data):
+        """ Initialize the MAE model with the proper random keys, the learning rate and the optimizer.
+        """
         # Initialize model
         self.rng = jax.random.PRNGKey(self.seed)
         self.rng, init_rng, dropout_init_rng, drop_path_init_rng, masking_rng = jax.random.split(self.rng, 5)
@@ -83,7 +88,8 @@ class TrainModule:
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=params, tx=optimizer)
 
     def train_model(self, train_data, val_data, num_epochs=500):
-        # Train model for defined number of epochs
+        """ Train the model for a given number of epochs.
+        """
         avg_losses = []
         pbar = tqdm(total=num_epochs)
         for epoch_idx in range(1, num_epochs+1):
@@ -98,7 +104,8 @@ class TrainModule:
         return np.asarray(avg_losses)
 
     def train_epoch(self, train_data, epoch):
-        # Train model for one epoch, and log avg loss
+        """ Train model for one epoch, and log the average loss.
+        """
         losses = []
         pbar = tqdm(total=len(train_data))
         for batch in train_data:
@@ -116,7 +123,8 @@ class TrainModule:
         return avg_loss
 
     def eval_model(self, data_loader):
-        # Test model on all images of a data loader and return avg loss
+        """ Test the model on all images of a data loader and return the average loss.
+        """
         losses = []
         batch_sizes = []
         for batch in data_loader:
@@ -129,10 +137,12 @@ class TrainModule:
         return avg_loss
 
     def save_model(self, step=0):
-        # Save current model at certain training iteration
+        """ Save current model at certain training iteration.
+        """
         checkpoints.save_checkpoint(ckpt_dir=self.log_dir, target=self.state.params, prefix=f"{self.dataset_name}_", step=step, overwrite=True)
     
     def load_model(self):
-        # Load model. We use different checkpoint for pretrained models
+        """ Load a saved pre-trained model.
+        """
         params = checkpoints.restore_checkpoint(ckpt_dir=self.log_dir, target=self.state.params, prefix=self.dataset_name)
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=params, tx=self.state.tx)
