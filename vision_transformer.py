@@ -81,7 +81,7 @@ class LayerScale(nn.Module):
     def __call__(self, x):
         return x * self.gamma
 
-def drop_path(x, rng, drop_prob: float = 0., train: bool = False, scale_by_keep: bool = True):
+def drop_path(x, rng, drop_prob=0., train=False, scale_by_keep=True):
     if drop_prob == 0. or not train:
         return x
     keep_prob = 1 - drop_prob
@@ -92,7 +92,8 @@ def drop_path(x, rng, drop_prob: float = 0., train: bool = False, scale_by_keep:
     return x * random_array
   
 class DropPath(nn.Module):
-    """Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks).
+    """Drop paths (Stochastic Depth) per sample
+    (when applied in main path of residual blocks).
     """
     drop_prob: float = 0.
     scale_by_keep: bool = True
