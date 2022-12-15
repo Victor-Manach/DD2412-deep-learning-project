@@ -70,7 +70,7 @@ def main():
     # run the model on a single image to visualize its reconstruction performance
     key = jax.random.PRNGKey(seed)
     img = next(iter(train_data))[0]
-    run_one_image(img, model_mae, trainer.state.params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper())
+    run_one_image(img, model_mae, trainer.state.params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper(), model_arch="med_arch")
     
     # save the trained model
     trainer.save_model(step=num_epochs)

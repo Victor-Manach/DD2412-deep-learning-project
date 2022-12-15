@@ -14,7 +14,7 @@ def show_image(image, title=''):
     plt.axis('off')
     return
 
-def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae", suffix="0"):
+def run_one_image(x, model, params, key, epochs, dataset_name, model_arch, prefix="mae", suffix="0"):
     """ Run the model on a single image, plot the original image vs. the reconstructed image
     and compute the loss for the given image. Save the results to a .png file.
     """
@@ -62,7 +62,7 @@ def run_one_image(x, model, params, key, epochs, dataset_name, prefix="mae", suf
     show_image(im_paste[0], "reconstruction + visible")
 
     #plt.show()
-    plt.savefig(f"./figures/{prefix}_{epochs}_{suffix}.png", dpi=600)
+    plt.savefig(f"./figures/{prefix}_{epochs}_{model_arch}_{suffix}.png", dpi=600)
 
 def plot_train_loss(train_losses):
     """ Given the average losses at each epoch of the training phase,
