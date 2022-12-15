@@ -32,25 +32,25 @@ def main():
         model_mae = mae.MAEViT(img_size=img_size,
                                patch_size=patch_size,
                                nb_channels=3,
-                               embed_dim=128, # 1024
-                               encoder_depth=4, # 24
-                               encoder_num_heads=4, # 16
-                               decoder_embed_dim=64, # 512
-                               decoder_depth=2, # 8
-                               decoder_num_heads=4, # 16
-                               mlp_ratio=2., # 4
+                               embed_dim=128,
+                               encoder_depth=4,
+                               encoder_num_heads=4,
+                               decoder_embed_dim=64,
+                               decoder_depth=2,
+                               decoder_num_heads=4,
+                               mlp_ratio=2.,
                                norm_pix_loss=False)
     else: # medium architecture for the MAE
         model_mae = mae.MAEViT(img_size=img_size,
                                patch_size=patch_size,
                                nb_channels=3,
-                               embed_dim=256, # 1024
-                               encoder_depth=4, # 24
-                               encoder_num_heads=4, # 16
-                               decoder_embed_dim=128, # 512
-                               decoder_depth=2, # 8
-                               decoder_num_heads=4, # 16
-                               mlp_ratio=2., # 4
+                               embed_dim=256,
+                               encoder_depth=4,
+                               encoder_num_heads=4,
+                               decoder_embed_dim=128,
+                               decoder_depth=2,
+                               decoder_num_heads=4,
+                               mlp_ratio=2.,
                                norm_pix_loss=False)
     
     # train the model

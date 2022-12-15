@@ -21,6 +21,8 @@ class MAEViT(nn.Module):
     norm_pix_loss : bool = False
     
     def setup(self):
+        """ Setup the layers for the MAE and compute the positional embedding for the patches
+        """
         self.patch_embed = PatchEmbedding(img_size=self.img_size, patch_size=self.patch_size, embedding_dim=self.embed_dim, nb_channels=self.nb_channels)
         nb_patches = self.patch_embed.nb_patches
         
@@ -47,6 +49,8 @@ class MAEViT(nn.Module):
         self.decoder_prediction = nn.Dense(self.patch_size**2 * self.nb_channels, use_bias = True)
     
     def encoder(self, x, mask_ratio, train, key):
+        """ Encoder part of the MAE, that contains the creation of the patches + random masking
+        """
         x = self.patch_embed(x)
         
         x += self.position_embedding[:, 1:, :]
@@ -66,6 +70,8 @@ class MAEViT(nn.Module):
         return x, mask, ids_restore
     
     def decoder(self, x, ids_restore, train):
+        """ Decoder part of the MAE
+        """
         x = self.decoder_embedding(x)
 
         # append mask tokens to sequence
@@ -92,6 +98,8 @@ class MAEViT(nn.Module):
         return x
     
     def __call__(self, x, train, key, mask_ratio=.25):
+        """ Run the forward path of the MAE
+        """
         #t1 = time.time()
         z, mask, ids_restore = self.encoder(x=x, mask_ratio=mask_ratio, train=train, key=key)
         #print("(MAE forward) Time to compute encoder forward: {:.4f}s".format(time.time()-t1))
@@ -104,9 +112,7 @@ class MAEViT(nn.Module):
 @partial(jax.jit, static_argnames="p")
 @partial(jax.vmap, in_axes=(0, None), out_axes=0)
 def create_patches(x, p):
-    """
-    Given an image, create a list of patches for that image
-    Use jax.vmap to extend the function to a batch of images
+    """ Given an image, create a list of patches for that image from left to right and top to bottom
     """
     #p = self.patch_size
     h = w = x.shape[1] // p
@@ -119,9 +125,7 @@ def create_patches(x, p):
 @partial(jax.jit, static_argnames="p")
 @partial(jax.vmap, in_axes=(0, None), out_axes=0)
 def recreate_images(x, p):
-    """
-    Given a list of patches, recreate the corresponding image
-    Use jax.vmap to extend the function to a batch of list of patches
+    """ Given a list of patches, recreate the corresponding image
     """
     #p = self.patch_size
     h = w = int(x.shape[0]**.5)
@@ -135,9 +139,7 @@ def recreate_images(x, p):
 @partial(jax.jit, static_argnames="mask_ratio")
 @partial(jax.vmap, in_axes=(0, None, 0), out_axes=0)
 def random_masking(x, mask_ratio, key):
-    """
-    Perform a random masking on the embeddings of the patches
-    x: (batch size, number of patches, embedding dimension)
+    """ Perform a random masking on the embeddings of the patches
     """
     L, D = x.shape
     keep = int(L*(1-mask_ratio))
@@ -158,10 +160,7 @@ def random_masking(x, mask_ratio, key):
     return x_masked, mask, ids_restore
 
 def mae_loss(model, params, x, train, key):
-    """
-    x: [N, 3, H, W]
-    y: [N, L, p*p*3]
-    mask: [N, L], 0 is keep, 1 is remove, 
+    """ Compute the MSE loss between the original image and the reconstructed image only on the visible patches
     """
     key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
     #t1 = time.time()
@@ -177,10 +176,7 @@ def mae_loss(model, params, x, train, key):
     return loss, key
 
 def mae_norm_pix_loss(model, params, x, train, key):
-    """
-    x: [N, 3, H, W]
-    y: [N, L, p*p*3]
-    mask: [N, L], 0 is keep, 1 is remove, 
+    """ Compute the MSE loss on the visible patches with a normalized value for all the pixels of the original image
     """
     key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
     target = create_patches(x, model.patch_size)

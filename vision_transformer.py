@@ -41,6 +41,8 @@ class Mlp(nn.Module):
         return x
 
 class Attention(nn.Module):
+    """ Multi-head attention block
+    """
     dim : int
     num_heads : int = 8
     qkv_bias : bool = False
@@ -72,6 +74,8 @@ class Attention(nn.Module):
         return x
 
 class LayerScale(nn.Module):
+    """ Scale the inputs of the layer with a constant normalization term
+    """
     dim : int
     init_values : float = 1e-5
     
@@ -82,6 +86,8 @@ class LayerScale(nn.Module):
         return x * self.gamma
 
 def drop_path(x, rng, drop_prob=0., train=False, scale_by_keep=True):
+    """ Randomly drop some values from the input array
+    """
     if drop_prob == 0. or not train:
         return x
     keep_prob = 1 - drop_prob
@@ -107,6 +113,8 @@ class DropPath(nn.Module):
         return f"drop_prob={round(self.drop_prob,3):0.3f}"
 
 class Block(nn.Module):
+    """ Vision Transformer block
+    """
     dim : int
     num_heads : int
     mlp_ratio : float = 4.
