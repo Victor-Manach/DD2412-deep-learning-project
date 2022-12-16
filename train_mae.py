@@ -21,14 +21,14 @@ from mae import mae_loss, mae_norm_pix_loss
 CHECKPOINT_PATH = "./saved_models/"
 
 class TrainModule:
-    def __init__(self, model, train, exmp_imgs, dataset_name, seed=42):
+    def __init__(self, model, train, exmp_imgs, dataset_name, model_arch, seed=42):
         super().__init__()
         self.seed = seed
         # Create empty model. Note: no parameters yet
         self.model = model
         # Prepare logging
         self.exmp_imgs = exmp_imgs
-        self.log_dir = os.path.join(CHECKPOINT_PATH, dataset_name)
+        self.log_dir = os.path.join(CHECKPOINT_PATH, dataset_name, model_arch)
         self.dataset_name = dataset_name
         # Create jitted training and eval functions
         self.create_functions()

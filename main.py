@@ -29,6 +29,7 @@ def main():
     
     # import the model
     if small_architecture: # small architecture for the MAE
+        model_arch = "small_arch"
         model_mae = mae.MAEViT(img_size=img_size,
                                patch_size=patch_size,
                                nb_channels=3,
@@ -41,6 +42,7 @@ def main():
                                mlp_ratio=2.,
                                norm_pix_loss=False)
     else: # medium architecture for the MAE
+        model_arch = "med_arch"
         model_mae = mae.MAEViT(img_size=img_size,
                                patch_size=patch_size,
                                nb_channels=3,
@@ -56,7 +58,7 @@ def main():
     # train the model
     print("Starting training phase")
     t1 = time.time()
-    trainer = TrainModule(model=model_mae, train=train_data, exmp_imgs=next(iter(val_data))[:8], dataset_name=dataset_name, seed=seed)
+    trainer = TrainModule(model=model_mae, train=train_data, exmp_imgs=next(iter(val_data))[:8], dataset_name=dataset_name, model_arch=model_arch, seed=seed)
     train_losses = trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs)
     plot_train_loss(train_losses)
     print(f"End of training phase: {time.time()-t1:.4f}s")
