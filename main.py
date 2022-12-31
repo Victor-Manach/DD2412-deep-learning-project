@@ -14,7 +14,7 @@ def main():
     # seed for the random numbers
     seed = 42
     # whether to create a MAE model with a small or medium architecture
-    small_architecture = False
+    small_architecture = True
     
     # define the dataset that will be used for training: split represents [test_set, validation_set, train_set]
     # the image and patch sizes vary with the dataset chosen
