@@ -14,8 +14,8 @@ def resize(image, target_img_size):
     elif image.shape[-1] == 1:
         image = tf.concat([image, image, image], axis=-1)
         image = tf.image.resize_with_pad(image, target_img_size, target_img_size)
-    #image = np.einsum("hwc->chw", image) # einsum and transpose create the same image
-    image = tf.transpose(image, perm=[2,0,1])
+    image = tf.einsum("hwc->chw", image)
+    #image = tf.transpose(image, perm=[2,0,1])
     return image / 255.0
 
 def build_train_dataset(dataset, split, batch_size, img_size):

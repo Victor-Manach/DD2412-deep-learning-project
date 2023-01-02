@@ -46,7 +46,7 @@ class MAEViT(nn.Module):
         #self.decoder_blocks = objax.ModuleList([Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer) for i in range(self.decoder_depth)])
         self.decoder_blocks = [Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.decoder_block_norm_layer) for i in range(self.decoder_depth)]
         self.decoder_norm_layer = nn.LayerNorm()
-        self.decoder_prediction = nn.Dense(self.patch_size**2 * self.nb_channels, use_bias = True)
+        self.decoder_prediction = nn.Dense(self.patch_size**2 * self.nb_channels, use_bias=True)
     
     def encoder(self, x, mask_ratio, train, key):
         """ Encoder part of the MAE, that contains the creation of the patches + random masking
@@ -97,7 +97,7 @@ class MAEViT(nn.Module):
 
         return x
     
-    def __call__(self, x, train, key, mask_ratio=.25):
+    def __call__(self, x, train, key, mask_ratio=.75):
         """ Run the forward path of the MAE
         """
         #t1 = time.time()
@@ -115,6 +115,7 @@ def create_patches(x, p):
     """ Given an image, create a list of patches for that image from left to right and top to bottom
     """
     #p = self.patch_size
+    assert x.shape[1] == x.shape[2] and x.shape[1] % p == 0
     h = w = x.shape[1] // p
     x_patches = x.reshape((3, h, p, w, p))
     x_patches = jnp.einsum("chpwq->hwpqc", x_patches)
@@ -126,9 +127,12 @@ def create_patches(x, p):
 @partial(jax.vmap, in_axes=(0, None), out_axes=0)
 def recreate_images(x, p):
     """ Given a list of patches, recreate the corresponding image
+    x: (L, p**2 * 3)
+    imgs: (3, H, W)
     """
     #p = self.patch_size
     h = w = int(x.shape[0]**.5)
+    assert h * w == x.shape[0]
     
     x = x.reshape((h, w, p, p, 3))
     x = jnp.einsum('hwpqc->chpwq', x)

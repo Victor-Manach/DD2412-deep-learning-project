@@ -19,6 +19,7 @@ def run_one_image(x, model, params, key, epochs, dataset_name, model_arch, prefi
     and compute the loss for the given image. Save the results to a .png file.
     """
     x = x[None] # make it a batch-like
+    #x = jnp.einsum('nhwc->nchw', x)
     
     target = create_patches(x, model.patch_size)
 
@@ -29,7 +30,6 @@ def run_one_image(x, model, params, key, epochs, dataset_name, model_arch, prefi
     
     # compute the loss before the mask is reshapped
     loss = jnp.sum(jnp.mean(jnp.square(y - target), axis=-1)*mask) / jnp.sum(mask)
-    print("Loss on one image: {:.4f}".format(loss))
 
     # visualize the mask
     mask = jnp.expand_dims(mask, -1)
@@ -62,7 +62,7 @@ def run_one_image(x, model, params, key, epochs, dataset_name, model_arch, prefi
     show_image(im_paste[0], "reconstruction + visible")
 
     #plt.show()
-    plt.savefig(f"./figures/{prefix}_{epochs}_{model_arch}_{suffix}.png", dpi=600)
+    plt.savefig(f"./figures/{prefix}_{epochs}_{model_arch}_{suffix}.png", dpi=400)
 
 def plot_train_loss(train_losses):
     """ Given the average losses at each epoch of the training phase,
@@ -73,4 +73,4 @@ def plot_train_loss(train_losses):
     #plt.title("Evolution of the train loss with respect to the number of epochs", fontsize=20)
     plt.xlabel("Epochs")
     plt.ylabel("Average loss per epoch")
-    plt.savefig("./figures/train_loss.png", dpi=600)
+    plt.savefig("./figures/train_loss.png", dpi=400)

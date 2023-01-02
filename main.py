@@ -6,24 +6,39 @@ import load_datasets_tf
 from train_mae import TrainModule
 from plot_images import run_one_image, plot_train_loss
 import time
+import argparse
 
-def main():
+def get_args_parser():
+    parser = argparse.ArgumentParser('MAE pre-training', add_help=False)
+    parser.add_argument('--batch_size', default=256, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
+
+    parser.add_argument('--mask_ratio', default=.75, type=float,
+                        help='Masking ratio (percentage of removed patches).')
+    parser.add_argument('--seed', default=42, type=int)
+    
+    parser.add_argument('--small_arch', action='store_true',
+                        help='Whether or not use the small architecture for the MAE')
+    parser.set_defaults(small_arch=True)
+
+    return parser
+
+def main(args):
     print(f"Available devices ({jax.local_device_count()} devices): {jax.devices()}")
     # number of epochs for the training phase
-    num_epochs = 400
+    num_epochs = args.epochs
     # seed for the random numbers
-    seed = 42
+    seed = args.seed
     # whether to create a MAE model with a small or medium architecture
-    small_architecture = True
+    small_architecture = args.small_arch
     
     # define the dataset that will be used for training: split represents [test_set, validation_set, train_set]
     # the image and patch sizes vary with the dataset chosen
-    #dataset_name, split, img_size, patch_size = "mnist", ["test", "train[:20%]", "train[20%:]"], 28, 4
     dataset_name, split, img_size, patch_size = "cifar10", ["test", "train[:20%]", "train[20%:]"], 32, 4
     
     # load the dataset
     t1 = time.time()
-    train_data, val_data, test_data = load_datasets_tf.build_train_dataset(dataset=dataset_name, split=split, batch_size=256, img_size=img_size)
+    train_data, val_data, test_data = load_datasets_tf.build_train_dataset(dataset=dataset_name, split=split, batch_size=args.batch_size, img_size=img_size)
     #train_data, val_data, test_data = load_datasets_torch.build_train_dataset(dataset=dataset_name, split=split, batch_size=256, img_size=img_size)
     print(f"Time to load the datasets: {time.time()-t1:.4f}s")
     
@@ -60,7 +75,7 @@ def main():
     t1 = time.time()
     trainer = TrainModule(model=model_mae, train=train_data, exmp_imgs=next(iter(val_data))[:8], dataset_name=dataset_name, model_arch=model_arch, seed=seed)
     train_losses = trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs)
-    plot_train_loss(train_losses)
+    #plot_train_loss(train_losses)
     print(f"End of training phase: {time.time()-t1:.4f}s")
     
     # evaluate the model on the train and test sets
@@ -72,10 +87,12 @@ def main():
     # run the model on a single image to visualize its reconstruction performance
     key = jax.random.PRNGKey(seed)
     img = next(iter(train_data))[0]
-    run_one_image(img, model_mae, trainer.state.params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper(), model_arch="med_arch")
+    run_one_image(img, model_mae, trainer.state.params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper(), model_arch=model_arch)
     
     # save the trained model
-    trainer.save_model(step=num_epochs)
+    #trainer.save_model(step=num_epochs)
     
 if __name__ == '__main__':
-    main()
+    args = get_args_parser()
+    args = args.parse_args()
+    main(args)

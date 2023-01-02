@@ -34,14 +34,16 @@ class PatchEmbedding(nn.Module):
         
     def __call__(self, images):
         """
-        images: [batch_size, nb_colors, height, width]
+        images: [batch_size, height, width, nb_colors]
         """
-        batch_size, height, width, nb_colors = images.shape
-        images = jnp.transpose(images, axes=(0,2,3,1))
+        batch_size = images.shape[0]
+        images = jnp.einsum("nchw->nhwc", images)
+        #images = jnp.transpose(images, axes=(0,2,3,1))
         
         # create the embedding for all the patches of the images, transpose the axes to meet Flax's conv layer requirements
         embedding = self.embedding_layer(images)
-        embedding = jnp.transpose(embedding, axes=(0,3,1,2))
+        #embedding = jnp.transpose(embedding, axes=(0,3,1,2))
+        embedding = jnp.einsum("nhwc->nchw", embedding)
         
         if self.flatten:
             embedding = jnp.reshape(embedding, (batch_size, -1, embedding.shape[1]))

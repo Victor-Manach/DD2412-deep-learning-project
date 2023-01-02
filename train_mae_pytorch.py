@@ -32,7 +32,7 @@ def get_args_parser():
     parser.add_argument('--input_size', default=32, type=int,
                         help='images input size')
 
-    parser.add_argument('--mask_ratio', default=.25, type=float,
+    parser.add_argument('--mask_ratio', default=.75, type=float,
                         help='Masking ratio (percentage of removed patches).')
 
     parser.add_argument('--norm_pix_loss', action='store_true',
@@ -121,8 +121,8 @@ def main(args):
     chkpt_dir = f'./pytorch_mae_output/checkpoint-{last_saved}.pth'
     saved_model = prepare_model(chkpt_dir, 'mae_vit_small')
     
-    run_one_image(img, model_mae)
-    #run_one_image(img, saved_model)
+    run_one_image(img, model_mae, args)
+    #run_one_image(img, saved_model, args)
     
 
 def train_one_epoch(model: torch.nn.Module,
