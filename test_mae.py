@@ -9,11 +9,11 @@ from flax.training import checkpoints
 # test the model on N images
 N = 5
 # number of epochs for which the MAE model has been trained
-num_epochs = 50
+num_epochs = 400
 # set the seed for the random masking
 seed = 0
 # define the architecture for the MAE
-small_architecture = False
+small_architecture = True
 
 # parameters needed to load the dataset
 dataset_name, split, img_size, patch_size = "cifar10", ["test", "train[:20%]", "train[20%:]"], 32, 4
@@ -26,10 +26,10 @@ if small_architecture: # small architecture for the MAE
                          patch_size=patch_size,
                          nb_channels=3,
                          embed_dim=128,
-                         encoder_depth=4,
+                         encoder_depth=3,
                          encoder_num_heads=4,
                          decoder_embed_dim=64,
-                         decoder_depth=2,
+                         decoder_depth=1,
                          decoder_num_heads=4,
                          mlp_ratio=2.,
                          norm_pix_loss=False)
