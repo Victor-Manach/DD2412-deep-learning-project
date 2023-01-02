@@ -56,7 +56,9 @@ def get_args_parser():
     # Dataset parameters
     parser.add_argument('--data_path', default='/datasets01/imagenet_full_size/061417/', type=str,
                         help='dataset path')
-
+    
+    parser.add_argument('--output_dir', default='./pytorch_mae_output',
+                        help='path where to save, empty for no saving')
     parser.add_argument('--log_dir', default='./output_dir',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cpu',
