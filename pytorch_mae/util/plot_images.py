@@ -1,5 +1,7 @@
 import torch
-import matplotlib as plt
+import matplotlib.pyplot as plt
+
+from pytorch_mae import models_mae
 
 def show_image(image, title=''):
     # image is [H, W, 3]
@@ -9,6 +11,15 @@ def show_image(image, title=''):
     plt.axis('off')
     return
 
+def prepare_model(chkpt_dir, arch='mae_vit_small'):
+    # build model
+    model = getattr(models_mae, arch)()
+    # load model
+    checkpoint = torch.load(chkpt_dir, map_location='cpu')
+    msg = model.load_state_dict(checkpoint['model'], strict=False)
+    print(msg)
+    return model
+
 def run_one_image(img, model):
     x = torch.tensor(img)
 
@@ -17,7 +28,7 @@ def run_one_image(img, model):
     x = torch.einsum('nhwc->nchw', x)
 
     # run MAE
-    loss, y, mask = model(x.float(), mask_ratio=0.75)
+    loss, y, mask = model(x.float(), mask_ratio=.25)
     y = model.unpatchify(y)
     y = torch.einsum('nchw->nhwc', y).detach().cpu()
 
@@ -37,6 +48,7 @@ def run_one_image(img, model):
 
     # make the plt figure larger
     plt.rcParams['figure.figsize'] = [24, 24]
+    plt.suptitle(f"Reconstructed image from CIFAR-10 dataset | Loss = {loss:.4f}", fontsize=20)
 
     plt.subplot(1, 4, 1)
     show_image(x[0], "original")

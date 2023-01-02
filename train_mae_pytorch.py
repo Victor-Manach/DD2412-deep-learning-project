@@ -15,7 +15,7 @@ from pytorch_mae import models_mae
 import timm.optim.optim_factory as optim_factory
 from pytorch_mae.util.misc import NativeScalerWithGradNormCount as NativeScaler
 from pytorch_mae.util.misc import save_model
-from pytorch_mae.util.plot_images import run_one_image, plot_train_loss
+from pytorch_mae.util.plot_images import run_one_image, plot_train_loss, prepare_model
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE pre-training', add_help=False)
@@ -84,6 +84,7 @@ def main(args):
     np.random.seed(seed)
     
     average_loss = []
+    last_saved = 0
     
     transform = transforms.Compose([transforms.ToTensor()])
     
@@ -108,12 +109,21 @@ def main(args):
         average_loss.append(train_stats["loss"])
         
         if epoch % 10 == 0:
+            last_saved = epoch
             save_model(args=args, model=model_mae, model_without_ddp=model_without_ddp, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
+            
+    plot_train_loss(average_loss)
     
     img = next(iter(train_data))[0]
+    img = img.reshape(args.input_size, args.input_size, 3)
+    
+    chkpt_dir = f'./pytorch_mae_output/checkpoint-{last_saved}.pth'
+    saved_model = prepare_model(chkpt_dir, 'mae_vit_small')
+    
     run_one_image(img, model_mae)
-    plot_train_loss(average_loss)
+    #run_one_image(img, saved_model)
+    
 
 def train_one_epoch(model: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
