@@ -50,4 +50,16 @@ def run_one_image(img, model):
     plt.subplot(1, 4, 4)
     show_image(im_paste[0], "reconstruction + visible")
 
-    plt.show()
+    #plt.show()
+    plt.savefig("./pytorch_mae_output/pytorch_model_output.png", dpi=400)
+
+def plot_train_loss(train_losses):
+    """ Given the average losses at each epoch of the training phase,
+    plot the evolution of the train loss with respect to the number of epochs.
+    """
+    plt.rcParams['figure.figsize'] = [12, 8]
+    plt.plot(train_losses)
+    #plt.title("Evolution of the train loss with respect to the number of epochs", fontsize=20)
+    plt.xlabel("Epochs")
+    plt.ylabel("Average loss per epoch")
+    plt.savefig("./pytorch_mae_output/pytorch_train_loss.png", dpi=400)

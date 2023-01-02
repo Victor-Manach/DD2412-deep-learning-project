@@ -68,7 +68,7 @@ def plot_train_loss(train_losses):
     """ Given the average losses at each epoch of the training phase,
     plot the evolution of the train loss with respect to the number of epochs.
     """
-    plt.rcParams['figure.figsize'] = [12, 12]
+    plt.rcParams['figure.figsize'] = [12, 8]
     plt.plot(train_losses)
     #plt.title("Evolution of the train loss with respect to the number of epochs", fontsize=20)
     plt.xlabel("Epochs")

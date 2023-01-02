@@ -15,13 +15,13 @@ from pytorch_mae import models_mae
 import timm.optim.optim_factory as optim_factory
 from pytorch_mae.util.misc import NativeScalerWithGradNormCount as NativeScaler
 from pytorch_mae.util.misc import save_model
-from pytorch_mae.util.plot_images import run_one_image
+from pytorch_mae.util.plot_images import run_one_image, plot_train_loss
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE pre-training', add_help=False)
     parser.add_argument('--batch_size', default=256, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
-    parser.add_argument('--epochs', default=100, type=int)
+    parser.add_argument('--epochs', default=10, type=int)
     parser.add_argument('--accum_iter', default=1, type=int,
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
 
@@ -32,7 +32,7 @@ def get_args_parser():
     parser.add_argument('--input_size', default=32, type=int,
                         help='images input size')
 
-    parser.add_argument('--mask_ratio', default=0.75, type=float,
+    parser.add_argument('--mask_ratio', default=.25, type=float,
                         help='Masking ratio (percentage of removed patches).')
 
     parser.add_argument('--norm_pix_loss', action='store_true',
@@ -83,6 +83,8 @@ def main(args):
     torch.manual_seed(seed)
     np.random.seed(seed)
     
+    average_loss = []
+    
     transform = transforms.Compose([transforms.ToTensor()])
     
     train_data = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
@@ -101,16 +103,17 @@ def main(args):
     
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
     
-    for epoch in range(100):
+    for epoch in range(args.epochs):
         train_stats = train_one_epoch(model_mae, train_loader, optimizer, device, epoch, loss_scaler, args=args)
-        print(train_stats)
+        average_loss.append(train_stats["loss"])
+        
         if epoch % 10 == 0:
             save_model(args=args, model=model_mae, model_without_ddp=model_without_ddp, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
     
     img = next(iter(train_data))[0]
     run_one_image(img, model_mae)
-
+    plot_train_loss(average_loss)
 
 def train_one_epoch(model: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
@@ -122,9 +125,8 @@ def train_one_epoch(model: torch.nn.Module,
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
     print_freq = 20
-
-    accum_iter = 1
-    mask_ratio = .25
+    
+    accum_iter = args.accum_iter
 
     optimizer.zero_grad()
 
@@ -138,7 +140,7 @@ def train_one_epoch(model: torch.nn.Module,
             lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
 
         samples = samples.to(device, non_blocking=True)
-        loss, _, _ = model(samples, mask_ratio=mask_ratio)
+        loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
         loss_value = loss.item()
 
         if not math.isfinite(loss_value):
