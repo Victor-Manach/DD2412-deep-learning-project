@@ -10,7 +10,7 @@ import time
 def main():
     print(f"Available devices ({jax.local_device_count()} devices): {jax.devices()}")
     # number of epochs for the training phase
-    num_epochs = 1
+    num_epochs = 400
     # seed for the random numbers
     seed = 42
     # whether to create a MAE model with a small or medium architecture
