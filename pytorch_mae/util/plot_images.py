@@ -20,8 +20,8 @@ def prepare_model(chkpt_dir, arch='mae_vit_small'):
     print(msg)
     return model
 
-def run_one_image(img, model):
-    x = torch.tensor(img)
+def run_one_image(img, model, suffix=""):
+    x = torch.tensor(img.clone().detach())
 
     # make it a batch-like
     x = x.unsqueeze(dim=0)
@@ -63,7 +63,7 @@ def run_one_image(img, model):
     show_image(im_paste[0], "reconstruction + visible")
 
     #plt.show()
-    plt.savefig("./pytorch_mae_output/pytorch_model_output.png", dpi=400)
+    plt.savefig(f"./pytorch_mae_output/pytorch_model_output_{suffix}.png", dpi=400)
 
 def plot_train_loss(train_losses):
     """ Given the average losses at each epoch of the training phase,
