@@ -34,7 +34,7 @@ class PatchEmbedding(nn.Module):
         
     def __call__(self, images):
         """
-        images: [batch_size, height, width, nb_colors]
+        images: [batch_size, nb_colors, height, width]
         """
         batch_size = images.shape[0]
         images = jnp.einsum("nchw->nhwc", images)

@@ -8,8 +8,10 @@ from mae import recreate_images, create_patches
 def show_image(image, title=''):
     """ Inverse the normalization of the pixels and plot the image
     """
+    cifar10_mean = np.array([0.4914, 0.4822, 0.4465])
+    cifar10_std = np.array([0.247, 0.243, 0.261])
     assert image.shape[2] == 3 # image is [H, W, 3]
-    plt.imshow(jnp.clip(image * 255, 0, 255).astype(np.int32))
+    plt.imshow(jnp.clip((image * cifar10_std + cifar10_mean) * 255, 0, 255).astype(np.int32))
     plt.title(title, fontsize=16)
     plt.axis('off')
     return

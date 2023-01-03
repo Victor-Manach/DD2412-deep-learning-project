@@ -13,7 +13,7 @@ torch.manual_seed(seed)
 np.random.seed(seed)
 
 # parameters needed to load the dataset
-transform = transforms.Compose([transforms.ToTensor()])
+transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.247, 0.243, 0.261])])
     
 train_data = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 test_data = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)

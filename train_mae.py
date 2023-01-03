@@ -1,4 +1,4 @@
-# Code copied from a jax tutorial and adapted to work with our model and loss functions
+# Code copied from a Jax tutorial and adapted to work with our model and loss functions
 # --------------------------------------------------------
 # References:
 # Jax tutorial: https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/JAX/tutorial6/Transformers_and_MHAttention.html

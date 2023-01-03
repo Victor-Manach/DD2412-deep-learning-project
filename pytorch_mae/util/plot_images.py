@@ -1,12 +1,15 @@
 import torch
 import matplotlib.pyplot as plt
+import numpy as np
 
 from pytorch_mae import models_mae
 
 def show_image(image, title=''):
     # image is [H, W, 3]
+    cifar10_mean = np.array([0.4914, 0.4822, 0.4465])
+    cifar10_std = np.array([0.247, 0.243, 0.261])
     assert image.shape[2] == 3
-    plt.imshow(torch.clip(image * 255, 0, 255).int())
+    plt.imshow(torch.clip((image * cifar10_std + cifar10_mean) * 255, 0, 255).int())
     plt.title(title, fontsize=16)
     plt.axis('off')
     return

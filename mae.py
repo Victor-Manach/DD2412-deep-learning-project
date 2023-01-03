@@ -36,7 +36,7 @@ class MAEViT(nn.Module):
         
         self.position_embedding = jnp.array(pos_embed)
         #self.encoder_blocks = objax.ModuleList([Block(self.embed_dim, self.encoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer = self.norm_layer) for i in range(self.encoder_depth)])
-        self.encoder_blocks = [Block(self.embed_dim, self.encoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer = self.encoder_block_norm_layer) for i in range(self.encoder_depth)]
+        self.encoder_blocks = [Block(self.embed_dim, self.encoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.encoder_block_norm_layer) for i in range(self.encoder_depth)]
         self.encoder_norm_layer = nn.LayerNorm()
         
         # DECODER
@@ -119,7 +119,7 @@ def create_patches(x, p):
     h = w = x.shape[1] // p
     x_patches = x.reshape((3, h, p, w, p))
     x_patches = jnp.einsum("chpwq->hwpqc", x_patches)
-    x_patches = x.reshape((h * w, p**2 * 3))
+    x_patches = x_patches.reshape((h * w, p**2 * 3))
     
     return x_patches
 

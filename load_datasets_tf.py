@@ -14,9 +14,23 @@ def resize(image, target_img_size):
     elif image.shape[-1] == 1:
         image = tf.concat([image, image, image], axis=-1)
         image = tf.image.resize_with_pad(image, target_img_size, target_img_size)
+    
     image = tf.einsum("hwc->chw", image)
     #image = tf.transpose(image, perm=[2,0,1])
-    return image / 255.0
+    
+    image_std = normalize_image(image)
+    #image_std = tf.image.per_image_standardization(image)
+
+    return image_std
+
+def normalize_image(image):
+    image = image / 255.
+    cifar10_mean = np.array([0.4914, 0.4822, 0.4465])
+    cifar10_std = np.array([0.247, 0.243, 0.261])
+    layer = tf.keras.layers.Normalization(axis=0, mean=cifar10_mean, variance=np.square(cifar10_std))
+    image_std = layer(image)
+    
+    return image_std
 
 def build_train_dataset(dataset, split, batch_size, img_size):
     """ Given the name of the dataset, build 3 dataloader (train, validation and test)
