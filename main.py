@@ -75,7 +75,7 @@ def main(args):
     t1 = time.time()
     trainer = TrainModule(model=model_mae, train=train_data, exmp_imgs=next(iter(val_data))[:8], dataset_name=dataset_name, model_arch=model_arch, seed=seed)
     train_losses = trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs)
-    #plot_train_loss(train_losses)
+    plot_train_loss(train_losses)
     print(f"End of training phase: {time.time()-t1:.4f}s")
     
     # evaluate the model on the train and test sets
@@ -90,7 +90,7 @@ def main(args):
     run_one_image(img, model_mae, trainer.state.params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper(), model_arch=model_arch)
     
     # save the trained model
-    #trainer.save_model(step=num_epochs)
+    trainer.save_model(step=num_epochs)
     
 if __name__ == '__main__':
     args = get_args_parser()
