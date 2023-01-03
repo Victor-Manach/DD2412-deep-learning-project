@@ -20,7 +20,7 @@ def prepare_model(chkpt_dir, arch='mae_vit_small'):
     print(msg)
     return model
 
-def run_one_image(img, model, args, suffix=""):
+def run_one_image(img, model, mask_ratio, suffix=""):
     x = torch.tensor(img.clone().detach())
 
     # make it a batch-like
@@ -28,7 +28,7 @@ def run_one_image(img, model, args, suffix=""):
     x = torch.einsum('nhwc->nchw', x)
 
     # run MAE
-    loss, y, mask = model(x.float(), mask_ratio=args.mask_ratio)
+    loss, y, mask = model(x.float(), mask_ratio=mask_ratio)
     y = model.unpatchify(y)
     y = torch.einsum('nchw->nhwc', y).detach().cpu()
 

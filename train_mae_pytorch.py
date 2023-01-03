@@ -121,8 +121,8 @@ def main(args):
     chkpt_dir = f'./pytorch_mae_output/checkpoint-{last_saved}.pth'
     saved_model = prepare_model(chkpt_dir, 'mae_vit_small')
     
-    run_one_image(img, model_mae, args)
-    #run_one_image(img, saved_model, args)
+    run_one_image(img, model_mae, args.mask_ratio)
+    #run_one_image(img, saved_model, args.mask_ratio)
     
 
 def train_one_epoch(model: torch.nn.Module,
