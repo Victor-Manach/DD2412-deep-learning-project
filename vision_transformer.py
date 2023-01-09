@@ -9,6 +9,9 @@ import flax
 import flax.linen as nn
 import jax.numpy as jnp
 from utils import Identity, jax_unstack
+from embeddings import PatchEmbedding, position_embedding
+from functools import partial
+import numpy as np
 
 class Mlp(nn.Module):
     """ MLP as used in Vision Transformer, MLP-Mixer and related networks
@@ -85,16 +88,13 @@ class LayerScale(nn.Module):
     def __call__(self, x):
         return x * self.gamma
 
-def drop_path(x, rng, drop_prob=0., train=False, scale_by_keep=True):
+@jax.jit
+def drop_path(x, rng, drop_prob=0.):
     """ Randomly drop some values from the input array
     """
-    if drop_prob == 0. or not train:
-        return x
     keep_prob = 1 - drop_prob
     shape = (x.shape[0],) + (1,) * (x.ndim - 1) 
     random_array = jax.random.bernoulli(rng, p=keep_prob, shape=shape)
-    if keep_prob > 0.0 and scale_by_keep:
-        random_array /= keep_prob
     return x * random_array
   
 class DropPath(nn.Module):
@@ -103,14 +103,27 @@ class DropPath(nn.Module):
     """
     drop_prob: float = 0.
     scale_by_keep: bool = True
+    deterministic: bool = None
     rng_collection: str = "drop_path"
 
-    def __call__(self, x, train):
+    @nn.compact
+    def __call__(self, x, deterministic=None):
+        
+        deterministic = nn.merge_param(
+            "deterministic", self.deterministic, deterministic)
+        
+        if (self.drop_prob == 0.) or not deterministic:
+            return x
+        
         rng = self.make_rng(self.rng_collection)
-        return drop_path(x, rng, self.drop_prob, train, self.scale_by_keep)
-
-    def extra_repr(self):
-        return f"drop_prob={round(self.drop_prob,3):0.3f}"
+        keep_prob = 1 - self.drop_prob
+        if keep_prob > 0. and self.scale_by_keep:
+            x = drop_path(x, rng, self.drop_prob)
+            x /= keep_prob
+        else:
+            x = drop_path(x, rng, self.drop_prob)
+        
+        return x
 
 class Block(nn.Module):
     """ Vision Transformer block
@@ -131,14 +144,127 @@ class Block(nn.Module):
         self.attn = Attention(self.dim, num_heads=self.num_heads, qkv_bias=self.qkv_bias, attn_dropout_rate=self.attn_dropout_rate, proj_dropout_rate=self.dropout_rate)
         self.ls1 = LayerScale(self.dim, init_values=self.init_values) if self.init_values else Identity()
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
-        self.drop_path1 = DropPath(self.drop_path) if self.drop_path > 0. else Identity()
+        #self.drop_path1 = DropPath(drop_prob=self.drop_path) if self.drop_path > 0. else Identity()
+        self.drop_path1 = DropPath(drop_prob=self.drop_path) if self.drop_path > 0. else Identity()
 
         self.norm2 = self.norm_layer
         self.mlp = Mlp(in_features=self.dim, hidden_features=int(self.dim * self.mlp_ratio), act_layer=self.act_layer, drop=self.dropout_rate)
         self.ls2 = LayerScale(self.dim, init_values=self.init_values) if self.init_values else Identity()
-        self.drop_path2 = DropPath(self.drop_path) if self.drop_path > 0. else Identity()
+        self.drop_path2 = DropPath(drop_prob=self.drop_path) if self.drop_path > 0. else Identity()
 
     def __call__(self, x, train):
-        x += self.drop_path1(self.ls1(self.attn(self.norm1(x), train=train)), train=train)
-        x += self.drop_path2(self.ls2(self.mlp(self.norm2(x), train=train)), train=train)
+        x += self.drop_path1(self.ls1(self.attn(self.norm1(x), train=train)), deterministic=train)
+        x += self.drop_path2(self.ls2(self.mlp(self.norm2(x), train=train)), deterministic=train)
+        return x
+    
+class ViT(nn.Module):
+    """ Vision transformer full architecture for image classification.
+    Implementation based on the modified ViT implementation from MAE GitHub repo.
+    Link: https://github.com/facebookresearch/mae/blob/main/models_vit.py
+    """
+    img_size : int = 224
+    patch_size : int = 16
+    nb_channels : int = 3
+    num_classes : int = 10 # number of classes in the CIFAR-10 dataset
+    global_pool : bool = False
+    embed_dim : int = 768
+    depth : int = 12
+    num_heads : int = 12
+    mlp_ratio : float = 4.
+    qkv_bias : bool = True
+    init_values : float = None
+    class_token : bool = True
+    no_embed_class : bool = False
+    pre_norm : bool = False
+    use_fc_norm : bool = None
+    drop_rate : float = 0.
+    attn_drop_rate : float = 0.
+    drop_path_rate : float = 0.
+    weight_init : str = ''
+    norm_layer : nn.Module = None
+    act_layer : nn.Module = None
+    
+    def setup(self):
+        use_fc_norm = self.global_pool if self.use_fc_norm is None else self.use_fc_norm
+        norm_layer = self.norm_layer or nn.LayerNorm()
+        act_layer = self.act_layer or nn.gelu
+        
+        if self.global_pool:
+            self.fc_norm = norm_layer
+        else:
+            self.norm = norm_layer if not use_fc_norm else Identity()
+        
+        self.num_prefix_tokens = 1 if self.class_token else 0
+        self.grad_checkpointing = False
+        
+        self.patch_embed = PatchEmbedding(
+            img_size=self.img_size,
+            patch_size=self.patch_size,
+            nb_channels=self.nb_channels,
+            embedding_dim=self.embed_dim,
+            bias=not self.pre_norm,  # disable bias if pre-norm is used (e.g. CLIP)
+        )
+        nb_patches = self.patch_embed.nb_patches
+
+        self.cls_token = jnp.zeros((1, 1, self.embed_dim)) if self.class_token else None
+        #embed_len = nb_patches if self.no_embed_class else nb_patches + self.num_prefix_tokens
+        #self.pos_embed = jax.random.normal(rng, shape=(1, embed_len, self.embed_dim)) * .02
+        self.pos_embed = position_embedding(nb_patches, self.embed_dim, cls_token=self.class_token)
+        self.pos_drop = nn.Dropout(rate=self.drop_rate)
+        self.norm_pre = norm_layer if self.pre_norm else Identity()
+        
+        dpr = np.linspace(0, self.drop_path_rate, self.depth)  # stochastic depth decay rule
+        self.blocks = [
+            Block(
+                dim=self.embed_dim,
+                num_heads=self.num_heads,
+                mlp_ratio=self.mlp_ratio,
+                qkv_bias=self.qkv_bias,
+                init_values=self.init_values,
+                dropout_rate=self.drop_rate,
+                attn_dropout_rate=self.attn_drop_rate,
+                drop_path=dpr[i],
+                norm_layer=norm_layer, # missing drop_path_rate=dpr[i]
+                act_layer=act_layer
+            )
+            for i in range(self.depth)]
+
+        # Classifier Head
+        self.fc_norm = norm_layer if use_fc_norm else Identity()
+        self.head = nn.Dense(self.num_classes) if self.num_classes > 0 else Identity()
+    
+    def forward_features(self, x, train):
+        B = x.shape[0]
+        x = self.patch_embed(x)
+
+        cls_tokens = jnp.tile(self.cls_token, (B, 1, 1))
+        x = jnp.concatenate([cls_tokens, x], axis=1)
+        
+        x += self.pos_embed
+        x = self.pos_drop(x, deterministic=not train)
+
+        for l in self.blocks:
+            x = l(x, train)
+            
+        if self.global_pool:
+            x = jnp.mean(x[:, 1:, :], axis=1)  # global pool without cls token
+            outcome = self.fc_norm(x)
+        else:
+            x = self.norm(x)
+            outcome = x[:, 0]
+            
+        return outcome
+    
+    def forward_head(self, x, pre_logits: bool=False):
+        if self.global_pool:
+            x = jnp.mean(x[:, self.num_prefix_tokens:], axis=1)
+        else:
+            x = x[:, 0]
+        
+        x = self.fc_norm(x)
+        return x if pre_logits else self.head(x)
+    
+    def __call__(self, x, train):
+        x = self.forward_features(x, train)
+        x = self.forward_head(x)
         return x

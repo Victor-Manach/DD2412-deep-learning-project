@@ -5,50 +5,35 @@ import flax.linen as nn
 import jax.numpy as jnp
 from embeddings import PatchEmbedding, position_embedding
 from vision_transformer import Block
-import time
+from utils import Identity
 
-class MAEViT(nn.Module):
+class MAEEncoder(nn.Module):
     img_size : int = 224
     patch_size : int = 16
     nb_channels : int = 3
     embed_dim : int = 1024
     encoder_depth : int = 24
     encoder_num_heads : int = 16
-    decoder_embed_dim : int = 512
-    decoder_depth : int = 8
-    decoder_num_heads : int = 16
     mlp_ratio : float = 4.
-    norm_pix_loss : bool = False
     
     def setup(self):
-        """ Setup the layers for the MAE and compute the positional embedding for the patches
-        """
+        
         self.patch_embed = PatchEmbedding(img_size=self.img_size, patch_size=self.patch_size, embedding_dim=self.embed_dim, nb_channels=self.nb_channels)
         nb_patches = self.patch_embed.nb_patches
         
-        self.encoder_block_norm_layer = nn.LayerNorm()
-        self.decoder_block_norm_layer = nn.LayerNorm()
+        assert nb_patches == (self.img_size//self.patch_size)**2
         
-        # ENCODER
+        self.encoder_block_norm_layer = nn.LayerNorm()
+        
         self.cls_token = jnp.zeros((1, 1, self.embed_dim))
         pos_embed = position_embedding(nb_patches, self.embed_dim, cls_token=True)
-        decoder_pos_embed = position_embedding(nb_patches, self.decoder_embed_dim, cls_token=True)
         
         self.position_embedding = jnp.array(pos_embed)
         #self.encoder_blocks = objax.ModuleList([Block(self.embed_dim, self.encoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer = self.norm_layer) for i in range(self.encoder_depth)])
         self.encoder_blocks = [Block(self.embed_dim, self.encoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.encoder_block_norm_layer) for i in range(self.encoder_depth)]
         self.encoder_norm_layer = nn.LayerNorm()
-        
-        # DECODER
-        self.decoder_embedding = nn.Dense(self.decoder_embed_dim, use_bias=True)
-        self.mask_token = jnp.zeros((1, 1, self.decoder_embed_dim))
-        self.decoder_position_embedding = jnp.array(decoder_pos_embed)
-        #self.decoder_blocks = objax.ModuleList([Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer) for i in range(self.decoder_depth)])
-        self.decoder_blocks = [Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.decoder_block_norm_layer) for i in range(self.decoder_depth)]
-        self.decoder_norm_layer = nn.LayerNorm()
-        self.decoder_prediction = nn.Dense(self.patch_size**2 * self.nb_channels, use_bias=True)
     
-    def encoder(self, x, mask_ratio, train, key):
+    def __call__(self, x, mask_ratio, train, key):
         """ Encoder part of the MAE, that contains the creation of the patches + random masking
         """
         x = self.patch_embed(x)
@@ -69,7 +54,33 @@ class MAEViT(nn.Module):
         
         return x, mask, ids_restore
     
-    def decoder(self, x, ids_restore, train):
+    def _unbind(self):
+        variables = self.variables
+        module = self.clone()
+        return module, variables
+
+class MAEDecoder(nn.Module):
+    nb_patches: int
+    patch_size: int = 16
+    nb_channels : int = 3
+    decoder_embed_dim : int = 512
+    decoder_depth : int = 8
+    decoder_num_heads : int = 16
+    mlp_ratio : float = 4.
+    
+    def setup(self):
+        self.decoder_block_norm_layer = nn.LayerNorm()
+        decoder_pos_embed = position_embedding(self.nb_patches, self.decoder_embed_dim, cls_token=True)
+        
+        self.decoder_embedding = nn.Dense(self.decoder_embed_dim, use_bias=True)
+        self.mask_token = jnp.zeros((1, 1, self.decoder_embed_dim))
+        self.decoder_position_embedding = jnp.array(decoder_pos_embed)
+        #self.decoder_blocks = objax.ModuleList([Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer) for i in range(self.decoder_depth)])
+        self.decoder_blocks = [Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.decoder_block_norm_layer) for i in range(self.decoder_depth)]
+        self.decoder_norm_layer = nn.LayerNorm()
+        self.decoder_prediction = nn.Dense(self.patch_size**2 * self.nb_channels, use_bias=True)
+    
+    def __call__(self, x, ids_restore, train):
         """ Decoder part of the MAE
         """
         x = self.decoder_embedding(x)
@@ -97,6 +108,50 @@ class MAEViT(nn.Module):
 
         return x
     
+    def _unbind(self):
+        variables = self.variables
+        module = self.clone()
+        return module, variables
+
+class MAEViT(nn.Module):
+    img_size : int = 224
+    patch_size : int = 16
+    nb_channels : int = 3
+    embed_dim : int = 1024
+    encoder_depth : int = 24
+    encoder_num_heads : int = 16
+    decoder_embed_dim : int = 512
+    decoder_depth : int = 8
+    decoder_num_heads : int = 16
+    mlp_ratio : float = 4.
+    norm_pix_loss : bool = False
+    
+    def setup(self):
+        """ Setup the layers for the MAE and compute the positional embedding for the patches
+        """
+        self.nb_patches = (self.img_size//self.patch_size)**2
+        
+        # ENCODER
+        self.encoder = MAEEncoder(
+            img_size=self.img_size,
+            patch_size=self.patch_size,
+            nb_channels=self.nb_channels,
+            embed_dim=self.embed_dim,
+            encoder_depth=self.encoder_depth,
+            encoder_num_heads=self.encoder_num_heads,
+            mlp_ratio=self.mlp_ratio
+        )
+        
+        # DECODER
+        self.decoder = MAEDecoder(
+            nb_patches=self.nb_patches,
+            patch_size=self.patch_size,
+            nb_channels=self.nb_channels,
+            decoder_embed_dim=self.decoder_embed_dim,
+            decoder_depth=self.decoder_depth,
+            decoder_num_heads=self.decoder_num_heads,
+            mlp_ratio=self.mlp_ratio)
+        
     def __call__(self, x, train, key, mask_ratio=.75):
         """ Run the forward path of the MAE
         """
@@ -107,7 +162,42 @@ class MAEViT(nn.Module):
         #t1 = time.time()
         y = self.decoder(x=z, ids_restore=ids_restore, train=train)  # [N, L, p*p*3]
         #print("(MAE forward) Time to compute decoder forward: {:.4f}s".format(time.time()-t1))
+        
         return y, mask
+    
+    def _unbind(self):
+        variables = self.variables
+        module = self.clone()
+        return module, variables
+    
+class MAEClassifier(nn.Module):
+    num_classes: int
+    backbone: nn.Module
+    use_fc_norm: bool = True
+    global_pool: bool = False
+    
+    def setup(self):
+        self.fc_norm = nn.LayerNorm() if self.use_fc_norm else Identity()
+        self.head = nn.Dense(self.num_classes, name="head", kernel_init=nn.zeros) if self.num_classes > 0 else Identity()
+    
+    def __call__(self, x, mask_ratio, train, key):
+        z, mask, ids_restore = self.backbone(x, mask_ratio, train, key)
+        
+        if self.global_pool:
+            z = jnp.mean(z[:, 1:, :], axis=1)  # global pool without cls token
+            z = self.fc_norm(z)
+        else:
+            z = self.fc_norm(z)
+            z = z[:, 0]
+        
+        output = self.head(z)
+        
+        return output
+    
+    def _unbind(self):
+        variables = self.variables
+        module = self.clone()
+        return module, variables
 
 @partial(jax.jit, static_argnames="p")
 @partial(jax.vmap, in_axes=(0, None), out_axes=0)
