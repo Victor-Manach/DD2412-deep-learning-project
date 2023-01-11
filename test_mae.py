@@ -49,10 +49,10 @@ else: # medium architecture for the MAE
                             norm_pix_loss=False)
 
 # name of the file containing the parameters of the model to test
-filename = f"./saved_models/{dataset_name}/{model_arch}/"
+filename = f"./saved_models/mae/{dataset_name}/{model_arch}/{num_epochs}_epochs"
 
 # load the parameters of the trained MAE model
-params = checkpoints.restore_checkpoint(ckpt_dir=filename, target=None, prefix=dataset_name)
+params = checkpoints.restore_checkpoint(ckpt_dir=filename, target=None)
 
 # generate a key for the random masking function
 key = jax.random.PRNGKey(seed)

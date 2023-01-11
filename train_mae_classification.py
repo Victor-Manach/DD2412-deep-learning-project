@@ -16,12 +16,13 @@ import flax.linen as nn
 from tqdm.auto import tqdm
 from collections import defaultdict
 from flax.core.frozen_dict import freeze
+import mae
 
 # Path to the folder where the pretrained models are saved
 CHECKPOINT_PATH = "./saved_models/mae_classification/"
 
 class TrainModule:
-    def __init__(self, model, pretrained_encoder_vars, exmp_imgs, dataset_name, model_arch, num_epochs, num_steps_per_epoch, mask_ratio, seed=42):
+    def __init__(self, model, dataset_name, model_arch, num_epochs, mask_ratio, pretrained_encoder_vars=None, exmp_imgs=None, num_steps_per_epoch=None, train=True, seed=42):
         super().__init__()
         self.seed = seed
         # Create empty model. Note: no parameters yet
@@ -32,7 +33,10 @@ class TrainModule:
         # Create jitted training and eval functions
         self.create_functions()
         # Initialize model
-        self.init_model(pretrained_encoder_vars, exmp_imgs, num_epochs, num_steps_per_epoch)
+        if train:
+            self.init_model(pretrained_encoder_vars, exmp_imgs, num_epochs, num_steps_per_epoch)
+        else:
+            self.load_model()
 
     def create_functions(self):
         """ Initialize the functions needed to train and evaluate the model and jit those functions
@@ -162,3 +166,20 @@ class TrainModule:
         """
         params = checkpoints.restore_checkpoint(ckpt_dir=self.log_dir, target=self.state.params)
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=params, tx=self.state.tx)
+        
+def eval_model(model, params, mask_ratio, key, data_loader):
+    """ Test the model on all images of a data loader and return the average loss.
+    """
+    metrics = defaultdict(list)
+    batch_sizes = []
+    for batch in data_loader:
+        loss, acc, key = mae.mae_cls_loss(model=model, params=params, x=batch, train=False, mask_ratio=mask_ratio, key=key)
+        metrics["loss"].append(loss)
+        metrics["acc"].append(acc)
+        batch_sizes.append(batch[0].shape[0])
+    losses_np = np.stack(jax.device_get(metrics["loss"]))
+    accs_np = np.stack(jax.device_get(metrics["acc"]))
+    batch_sizes_np = np.stack(batch_sizes)
+    avg_loss = (losses_np * batch_sizes_np).sum() / batch_sizes_np.sum()
+    avg_acc = (accs_np * batch_sizes_np).sum() / batch_sizes_np.sum()
+    return avg_loss, avg_acc

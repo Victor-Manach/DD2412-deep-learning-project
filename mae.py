@@ -6,6 +6,7 @@ import jax.numpy as jnp
 from embeddings import PatchEmbedding, position_embedding
 from vision_transformer import Block
 from utils import Identity
+import optax
 
 class MAEEncoder(nn.Module):
     img_size : int = 224
@@ -283,3 +284,34 @@ def mae_norm_pix_loss(model, params, x, train, key):
 
     loss = jnp.sum((loss * mask)) / jnp.sum(mask)  # mean loss on removed patches
     return loss, key
+
+@partial(jax.jit, static_argnames=["model", "mask_ratio", "train"])
+def mae_cls_loss(model, params, x, train, mask_ratio, key):
+    imgs, labels = x
+    
+    key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
+    logits = model.apply({"params": params}, x=imgs, mask_ratio=mask_ratio, train=train, key=masked_rng, rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng})
+    
+    loss = optax.softmax_cross_entropy(logits, labels).mean()
+    preds = jax.nn.one_hot(logits.argmax(axis=-1), labels.shape[1])
+    acc = (preds == labels).mean()
+    
+    return loss, acc, key
+
+@partial(jax.jit, static_argnames=["model", "mask_ratio", "train"])
+def mae_supervised_contrastive_loss(model, params, x, train, mask_ratio, key):
+    imgs, labels = x
+    
+    key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
+    features = model.apply({"params": params}, x=imgs, mask_ratio=mask_ratio, train=train, key=masked_rng, rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng})
+    
+    return None
+
+@partial(jax.jit, static_argnames=["model", "mask_ratio", "train"])
+def mae_self_supervised_contrastive_loss(model, params, x, train, mask_ratio, key):
+    imgs, labels = x
+    
+    key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
+    features = model.apply({"params": params}, x=imgs, mask_ratio=mask_ratio, train=train, key=masked_rng, rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng})
+    
+    return None
