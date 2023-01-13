@@ -19,9 +19,13 @@ class MAEEncoder(nn.Module):
     
     def setup(self):
         
-        self.patch_embed = PatchEmbedding(img_size=self.img_size, patch_size=self.patch_size, embedding_dim=self.embed_dim, nb_channels=self.nb_channels)
-        nb_patches = self.patch_embed.nb_patches
+        self.patch_embed = PatchEmbedding(
+            img_size=self.img_size,
+            patch_size=self.patch_size,
+            embedding_dim=self.embed_dim,
+            nb_channels=self.nb_channels)
         
+        nb_patches = self.patch_embed.nb_patches
         assert nb_patches == (self.img_size//self.patch_size)**2
         
         self.encoder_block_norm_layer = nn.LayerNorm()
@@ -30,8 +34,16 @@ class MAEEncoder(nn.Module):
         pos_embed = position_embedding(nb_patches, self.embed_dim, cls_token=True)
         
         self.position_embedding = jnp.array(pos_embed)
-        #self.encoder_blocks = objax.ModuleList([Block(self.embed_dim, self.encoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer = self.norm_layer) for i in range(self.encoder_depth)])
-        self.encoder_blocks = [Block(self.embed_dim, self.encoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.encoder_block_norm_layer) for i in range(self.encoder_depth)]
+        self.encoder_blocks = [
+            Block(
+                self.embed_dim,
+                self.encoder_num_heads,
+                self.mlp_ratio,
+                qkv_bias=True,
+                norm_layer=self.encoder_block_norm_layer
+                )
+            for i in range(self.encoder_depth)
+            ]
         self.encoder_norm_layer = nn.LayerNorm()
     
     def __call__(self, x, mask_ratio, train, key):
@@ -76,8 +88,16 @@ class MAEDecoder(nn.Module):
         self.decoder_embedding = nn.Dense(self.decoder_embed_dim, use_bias=True)
         self.mask_token = jnp.zeros((1, 1, self.decoder_embed_dim))
         self.decoder_position_embedding = jnp.array(decoder_pos_embed)
-        #self.decoder_blocks = objax.ModuleList([Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.norm_layer) for i in range(self.decoder_depth)])
-        self.decoder_blocks = [Block(self.decoder_embed_dim, self.decoder_num_heads, self.mlp_ratio, qkv_bias=True, norm_layer=self.decoder_block_norm_layer) for i in range(self.decoder_depth)]
+        self.decoder_blocks = [
+            Block(
+                self.decoder_embed_dim,
+                self.decoder_num_heads,
+                self.mlp_ratio,
+                qkv_bias=True,
+                norm_layer=self.decoder_block_norm_layer
+                )
+            for i in range(self.decoder_depth)
+            ]
         self.decoder_norm_layer = nn.LayerNorm()
         self.decoder_prediction = nn.Dense(self.patch_size**2 * self.nb_channels, use_bias=True)
     
@@ -153,7 +173,7 @@ class MAEViT(nn.Module):
             decoder_num_heads=self.decoder_num_heads,
             mlp_ratio=self.mlp_ratio)
         
-    def __call__(self, x, train, key, mask_ratio=.75):
+    def __call__(self, x, train, key, mask_ratio):
         """ Run the forward path of the MAE
         """
         #t1 = time.time()
@@ -254,7 +274,7 @@ def random_masking(x, mask_ratio, key):
     
     return x_masked, mask, ids_restore
 
-def mae_loss(model, params, x, train, key):
+def mae_loss(model, params, x, train, mask_ratio, key):
     """ Compute the MSE loss between the original image and the reconstructed image only on the visible patches
     """
     key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
@@ -263,14 +283,21 @@ def mae_loss(model, params, x, train, key):
     #print("(Loss func) Time spent to create the patches: {:.4f}s".format(time.time()-t1))
 
     #t1 = time.time()
-    y, mask = model.apply({'params': params}, x=x, train=train, key=masked_rng, rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng})
+    y, mask = model.apply(
+        {'params': params},
+        x=x,
+        train=train,
+        mask_ratio=mask_ratio,
+        key=masked_rng,
+        rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng}
+        )
     #print("(Loss func) Time spent to forward model: {:.4f}s".format(time.time()-t1))
     
     loss = jnp.mean(jnp.square(y - target), axis=-1) # [N, L], mean loss per patch
     loss = jnp.sum(loss * mask) / jnp.sum(mask)  # mean loss on removed patches
     return loss, key
 
-def mae_norm_pix_loss(model, params, x, train, key):
+def mae_norm_pix_loss(model, params, x, train, mask_ratio, key):
     """ Compute the MSE loss on the visible patches with a normalized value for all the pixels of the original image
     """
     key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
@@ -279,7 +306,14 @@ def mae_norm_pix_loss(model, params, x, train, key):
     var = jnp.var(target, axis=-1, keepdims=True)
     target = (target - mean) / (var + 1.e-6)**.5
 
-    y, mask = model.apply({'params': params}, x=x, train=train, key=masked_rng, rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng})
+    y, mask = model.apply(
+        {'params': params},
+        x=x,
+        train=train,
+        mask_ratio=mask_ratio,
+        key=masked_rng,
+        rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng}
+        )
     loss = jnp.mean(jnp.square(y - target), axis=-1) # [N, L], mean loss per patch
 
     loss = jnp.sum((loss * mask)) / jnp.sum(mask)  # mean loss on removed patches
@@ -290,7 +324,14 @@ def mae_cls_loss(model, params, x, train, mask_ratio, key):
     imgs, labels = x
     
     key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
-    logits = model.apply({"params": params}, x=imgs, mask_ratio=mask_ratio, train=train, key=masked_rng, rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng})
+    logits = model.apply(
+        {"params": params},
+        x=imgs,
+        mask_ratio=mask_ratio,
+        train=train,
+        key=masked_rng,
+        rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng}
+        )
     
     loss = optax.softmax_cross_entropy(logits, labels).mean()
     preds = jax.nn.one_hot(logits.argmax(axis=-1), labels.shape[1])
@@ -299,19 +340,49 @@ def mae_cls_loss(model, params, x, train, mask_ratio, key):
     return loss, acc, key
 
 @partial(jax.jit, static_argnames=["model", "mask_ratio", "train"])
+def mae_self_supervised_contrastive_loss(model, params, x, train, mask_ratio, temperature, key):
+    imgs, labels = x
+    imgs = jnp.concatenate([imgs[0], imgs[1]], axis=0)
+    
+    key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
+    features, mask = model.apply(
+        {"params": params},
+        x=imgs,
+        mask_ratio=mask_ratio,
+        train=train,
+        key=masked_rng,
+        rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng}
+        )
+    
+    mask = jnp.expand_dims(mask, -1)
+    mask = jnp.tile(mask, (1, 1, model.patch_size**2 * 3))  # (N, H*W, p*p*3)
+    features = jnp.reshape(features * (1 - mask), (features.shape[0], -1))
+    
+    # Calculate cosine similarity between all images
+    cos_sim = optax.cosine_similarity(features[:,None,:], features[None,:,:])
+    cos_sim /= temperature
+    
+    # Masking cosine similarities to itself
+    diag_range = jnp.arange(features.shape[0], dtype=jnp.int32)
+    cos_sim = cos_sim.at[diag_range, diag_range].set(-9e15)
+    
+    # Find positive example -> batch_size//2 away from the original example
+    shifted_diag = jnp.roll(diag_range, imgs.shape[0]//2)
+    pos_logits = cos_sim[diag_range, shifted_diag]
+    
+    # InfoNCE loss
+    nll = - pos_logits + nn.logsumexp(cos_sim, axis=-1)
+    nll = nll.mean()
+    
+    return nll, key
+
+@partial(jax.jit, static_argnames=["model", "mask_ratio", "train"])
 def mae_supervised_contrastive_loss(model, params, x, train, mask_ratio, key):
     imgs, labels = x
     
     key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
-    features = model.apply({"params": params}, x=imgs, mask_ratio=mask_ratio, train=train, key=masked_rng, rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng})
+    features, mask = model.apply({"params": params}, x=imgs, mask_ratio=mask_ratio, train=train, key=masked_rng, rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng})
     
-    return None
-
-@partial(jax.jit, static_argnames=["model", "mask_ratio", "train"])
-def mae_self_supervised_contrastive_loss(model, params, x, train, mask_ratio, key):
-    imgs, labels = x
-    
-    key, dropout_apply_rng, drop_path_apply_rng, masked_rng = jax.random.split(key, 4)
-    features = model.apply({"params": params}, x=imgs, mask_ratio=mask_ratio, train=train, key=masked_rng, rngs={"dropout": dropout_apply_rng, "drop_path": drop_path_apply_rng})
+    features = features * (1 - mask)
     
     return None

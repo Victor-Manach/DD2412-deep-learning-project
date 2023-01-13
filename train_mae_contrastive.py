@@ -1,7 +1,7 @@
 # Code copied from a Jax tutorial and adapted to work with our model and loss functions
 # --------------------------------------------------------
 # References:
-# Jax tutorial: https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/JAX/tutorial6/Transformers_and_MHAttention.html
+# Jax tutorial: https://uvadlc-notebooks.readthedocs.io/en/latest/tutorial_notebooks/JAX/tutorial17/SimCLR.html
 # --------------------------------------------------------
 
 import os
@@ -15,17 +15,18 @@ from flax.training import train_state, checkpoints
 import flax.linen as nn
 from tqdm.auto import tqdm
 
-from mae import mae_loss, mae_norm_pix_loss
+from mae import mae_self_supervised_contrastive_loss
 
 # Path to the folder where the pretrained models are saved
-CHECKPOINT_PATH = "./saved_models/mae/"
+CHECKPOINT_PATH = "./saved_models/mae_cont_loss/"
 
 class TrainModule:
-    def __init__(self, model, length_train_data, exmp_imgs, dataset_name, model_arch, num_epochs, weight_decay, mask_ratio, seed=42):
+    def __init__(self, model, length_train_data, exmp_imgs, dataset_name, model_arch, num_epochs, weight_decay, mask_ratio, temperature, seed=42):
         super().__init__()
         self.seed = seed
         self.num_epochs = num_epochs
         self.mask_ratio = mask_ratio
+        self.temperature = temperature
         # Create empty model. Note: no parameters yet
         self.model = model
         # Prepare logging
@@ -42,17 +43,14 @@ class TrainModule:
         to speed up the computations.
         """
         # Training function
-        if self.model.norm_pix_loss:
-            loss_func = mae_norm_pix_loss
-        else:
-            loss_func = mae_loss
         def train_step(state, batch, key):
-            loss_fn = lambda params: loss_func(
+            loss_fn = lambda params: mae_self_supervised_contrastive_loss(
                 model=self.model,
                 params=params,
                 x=batch,
                 train=True,
                 mask_ratio=self.mask_ratio,
+                temperature=self.temperature,
                 key=key)
             
             (loss, key), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)  # Get loss and gradients for loss
@@ -64,13 +62,15 @@ class TrainModule:
         
         # Eval function
         def eval_step(state, batch, key):
-            loss, rng = loss_func(
+            loss, rng = mae_self_supervised_contrastive_loss(
                 model=self.model,
                 params=state.params,
                 x=batch,
                 train=False,
                 mask_ratio=self.mask_ratio,
+                temperature=self.temperature,
                 key=key)
+            
             return loss, rng
         self.eval_step = jax.jit(eval_step)
 
@@ -80,12 +80,7 @@ class TrainModule:
         # Initialize model
         self.rng = jax.random.PRNGKey(self.seed)
         self.rng, init_rng, dropout_init_rng, drop_path_init_rng, masking_rng = jax.random.split(self.rng, 5)
-        params = self.model.init(
-            {"params": init_rng, "dropout": dropout_init_rng, "drop_path": drop_path_init_rng},
-            x=self.exmp_imgs,
-            train=True,
-            mask_ratio=self.mask_ratio,
-            key=masking_rng)["params"]
+        params = self.model.init({"params": init_rng, "dropout": dropout_init_rng, "drop_path": drop_path_init_rng}, x=self.exmp_imgs, train=True, key=masking_rng)["params"]
         
         # Initialize learning rate schedule and optimizer
         total_steps = num_epochs * length_train_data + num_epochs
@@ -98,7 +93,7 @@ class TrainModule:
         )
         optimizer = optax.chain(
             optax.clip(1.),  # Clip gradients at 1
-            optax.adamw(lr_schedule, weight_decay=weight_decay) # optax.adam(lr_schedule)
+            optax.adamw(lr_schedule, weight_decay=weight_decay)
         )
         
         # Initialize training state
