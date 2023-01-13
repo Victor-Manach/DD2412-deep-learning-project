@@ -80,7 +80,12 @@ class TrainModule:
         # Initialize model
         self.rng = jax.random.PRNGKey(self.seed)
         self.rng, init_rng, dropout_init_rng, drop_path_init_rng, masking_rng = jax.random.split(self.rng, 5)
-        params = self.model.init({"params": init_rng, "dropout": dropout_init_rng, "drop_path": drop_path_init_rng}, x=self.exmp_imgs, train=True, key=masking_rng)["params"]
+        params = self.model.init(
+            {"params": init_rng, "dropout": dropout_init_rng, "drop_path": drop_path_init_rng},
+            x=self.exmp_imgs,
+            train=True,
+            mask_ratio=self.mask_ratio,
+            key=masking_rng)["params"]
         
         # Initialize learning rate schedule and optimizer
         total_steps = num_epochs * length_train_data + num_epochs
