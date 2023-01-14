@@ -48,9 +48,14 @@ def image_to_numpy(img, reshape=False):
     cifar10_std = np.array([0.247, 0.243, 0.261])
     img = np.array(img, dtype=np.float32)
     img = img / 255.
+    
+    std_img = np.zeros_like(img)
+    for i in range(img.shape[-1]):
+        std_img[:, :, i] = (img[:, :, i] - cifar10_mean[i]) / cifar10_std[i]
+    
     if reshape:
-        img = np.einsum("hwc->chw", img)
-    return img
+        std_img = np.einsum("hwc->chw", std_img)
+    return std_img
   
 def augment_image(rng, img):
     rngs = jax.random.split(rng, 3)
@@ -70,7 +75,7 @@ def augment_image(rng, img):
 parallel_augment = jax.jit(lambda rng, imgs: jax.vmap(augment_image)(jax.random.split(rng, imgs.shape[0]), imgs))
 contrast_transforms = transforms.Compose([transforms.RandomResizedCrop(size=32), image_to_numpy])
 
-def load_cifar10(batch_size, img_size, reshape=True, contrastive=False):
+def load_cifar10(batch_size, img_size, val_size=.2, reshape=True, contrastive=False):
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(size=img_size),
         transforms.RandomHorizontalFlip(),
@@ -81,10 +86,11 @@ def load_cifar10(batch_size, img_size, reshape=True, contrastive=False):
     
     if contrastive:
         train_transform = ContrastiveTransformations(train_transform, n_views=2)
+        test_transform = ContrastiveTransformations(test_transform, n_views=2)
     
     train_data = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
     test_data = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
-    train_data, val_data = torch.utils.data.random_split(train_data, (int(.8*len(train_data)), int(.2*len(train_data))))
+    train_data, val_data = torch.utils.data.random_split(train_data, (int((1-val_size)*len(train_data)), int(val_size*len(train_data))))
     
     #train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
     #test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False)

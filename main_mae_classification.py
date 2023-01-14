@@ -102,8 +102,8 @@ def main(args):
                           exmp_imgs=x_input,
                           dataset_name=dataset_name,
                           model_arch=model_arch,
+                          length_train_data=len(train_data),
                           num_epochs=num_epochs,
-                          num_steps_per_epoch=len(train_data),
                           mask_ratio=mask_ratio,
                           seed=seed)
     
@@ -112,11 +112,13 @@ def main(args):
     print(f"End of training phase: {time.time()-t1:.4f}s")
     
     # evaluate the model on the train and test sets
+    t1 = time.time()
     train_loss, train_acc = trainer.eval_model(train_data)
-    print(f"Trained for {num_epochs} epochs: train loss = {train_loss:.5f} | train acc = {train_acc:.5f}")
+    print(f"Trained for {num_epochs} epochs: train loss = {train_loss:.5f} | train acc = {train_acc:.5f} ({time.time()-t1:.4f}s)")
     
+    t1 = time.time()
     test_loss, test_acc = trainer.eval_model(test_data)
-    print(f"Trained for {num_epochs} epochs: test loss = {test_loss:.5f} | test acc = {test_acc:.5f}")
+    print(f"Trained for {num_epochs} epochs: test loss = {test_loss:.5f} | test acc = {test_acc:.5f} ({time.time()-t1:.4f}s)")
     
     N = 6
     key = jax.random.PRNGKey(seed)
@@ -125,11 +127,29 @@ def main(args):
     
     inspect_inputs = next(iter(train_data))
     inspect_imgs, inspect_labels = inspect_inputs[0][idx, :, :, :], inspect_inputs[1][idx, :]
-    inspect_predictions(inspect_imgs, inspect_labels, model=cls_model, params=trainer.state.params, mask_ratio=mask_ratio, key=rng2, dataset_name=dataset_name.upper(), epochs=num_epochs, dataset="train")
+    inspect_predictions(
+        inspect_imgs,
+        inspect_labels,
+        model=cls_model,
+        params=trainer.state.params,
+        mask_ratio=mask_ratio,
+        key=rng2,
+        dataset_name=dataset_name.upper(),
+        epochs=num_epochs,
+        dataset="train")
     
     inspect_inputs = next(iter(test_data))
     inspect_imgs, inspect_labels = inspect_inputs[0][idx, :, :, :], inspect_inputs[1][idx, :]
-    inspect_predictions(inspect_imgs, inspect_labels, model=cls_model, params=trainer.state.params, mask_ratio=mask_ratio, key=rng3, dataset_name=dataset_name.upper(), epochs=num_epochs, dataset="test")
+    inspect_predictions(
+        inspect_imgs,
+        inspect_labels,
+        model=cls_model,
+        params=trainer.state.params,
+        mask_ratio=mask_ratio,
+        key=rng3,
+        dataset_name=dataset_name.upper(),
+        epochs=num_epochs,
+        dataset="test")
     
     # save the trained model
     trainer.save_model(step=num_epochs)

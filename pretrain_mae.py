@@ -88,7 +88,7 @@ class TrainModule:
             key=masking_rng)["params"]
         
         # Initialize learning rate schedule and optimizer
-        total_steps = num_epochs * length_train_data + num_epochs
+        total_steps = (num_epochs+1) * length_train_data + (num_epochs+1)
         lr_schedule = optax.warmup_cosine_decay_schedule(
             init_value=1e-4,
             peak_value=1e-3,

@@ -16,7 +16,7 @@ def show_image(image, title=''):
     plt.axis('off')
     return
 
-def run_one_image(x, model, params, key, epochs, dataset_name, model_arch, prefix="mae", suffix="0"):
+def run_one_image(x, model, params, mask_ratio, key, epochs, dataset_name, model_arch, prefix="mae", suffix="0"):
     """ Run the model on a single image, plot the original image vs. the reconstructed image
     and compute the loss for the given image. Save the results to a .png file.
     """
@@ -26,7 +26,7 @@ def run_one_image(x, model, params, key, epochs, dataset_name, model_arch, prefi
     target = create_patches(x, model.patch_size)
 
     # run MAE
-    y, mask = model.apply({"params": params}, x=x, train=False, key=key)
+    y, mask = model.apply({"params": params}, x=x, train=False, mask_ratio=mask_ratio, key=key)
     y_img = recreate_images(y, model.patch_size)
     y_img = jnp.einsum('nchw->nhwc', y_img)
     

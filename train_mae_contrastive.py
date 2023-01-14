@@ -88,7 +88,7 @@ class TrainModule:
             key=masking_rng)["params"]
         
         # Initialize learning rate schedule and optimizer
-        total_steps = num_epochs * length_train_data + num_epochs
+        total_steps = (num_epochs+1) * length_train_data + (num_epochs+1)
         lr_schedule = optax.warmup_cosine_decay_schedule(
             init_value=1e-4,
             peak_value=1e-3,
@@ -144,7 +144,7 @@ class TrainModule:
         for batch in data_loader:
             loss, self.rng = self.eval_step(self.state, batch, self.rng)
             losses.append(loss)
-            batch_sizes.append(batch.shape[0])
+            batch_sizes.append(batch[0][0].shape[0])
         losses_np = np.stack(jax.device_get(losses))
         batch_sizes_np = np.stack(batch_sizes)
         avg_loss = (losses_np * batch_sizes_np).sum() / batch_sizes_np.sum()

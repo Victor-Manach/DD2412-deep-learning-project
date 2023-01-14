@@ -22,7 +22,7 @@ import mae
 CHECKPOINT_PATH = "./saved_models/mae_classification/"
 
 class TrainModule:
-    def __init__(self, model, dataset_name, model_arch, num_epochs, mask_ratio, pretrained_encoder_vars=None, exmp_imgs=None, num_steps_per_epoch=None, train=True, seed=42):
+    def __init__(self, model, dataset_name, model_arch, length_train_data, num_epochs, mask_ratio, pretrained_encoder_vars=None, exmp_imgs=None, num_steps_per_epoch=None, train=True, seed=42):
         super().__init__()
         self.seed = seed
         # Create empty model. Note: no parameters yet
@@ -34,7 +34,7 @@ class TrainModule:
         self.create_functions()
         # Initialize model
         if train:
-            self.init_model(pretrained_encoder_vars, exmp_imgs, num_epochs, num_steps_per_epoch)
+            self.init_model(length_train_data, pretrained_encoder_vars, exmp_imgs, num_epochs, num_steps_per_epoch)
         else:
             self.load_model()
 
@@ -73,7 +73,7 @@ class TrainModule:
             return loss, acc, rng
         self.eval_step = jax.jit(eval_step)
 
-    def init_model(self, pretrained_encoder_vars, exmp_imgs, num_epochs, num_steps_per_epoch):
+    def init_model(self, length_train_data, pretrained_encoder_vars, exmp_imgs, num_epochs):
         """ Initialize the MAE model with the proper random keys, the learning rate and the optimizer.
         """
         # Initialize model
@@ -87,11 +87,12 @@ class TrainModule:
         params = freeze(params)
         
         # Initialize learning rate schedule and optimizer
+        total_steps = (num_epochs+1) * length_train_data + (num_epochs+1)
         lr_schedule = optax.warmup_cosine_decay_schedule(
-            init_value=0.0,
+            init_value=1e-4,
             peak_value=1e-3,
-            warmup_steps=int(num_steps_per_epoch*num_epochs*0.6),
-            decay_steps=500*(num_epochs+1),
+            warmup_steps=int(total_steps*0.2),
+            decay_steps=total_steps,
             end_value=1e-5
         )
         

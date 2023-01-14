@@ -99,16 +99,26 @@ def main(args):
     print(f"End of training phase: {time.time()-t1:.4f}s")
     
     # evaluate the model on the train and test sets
+    t1 = time.time()
     train_loss = trainer.eval_model(train_data)
-    print(f"Trained for {num_epochs} epochs: train_loss={train_loss:.5f}")
+    print(f"Trained for {num_epochs} epochs: train_loss={train_loss:.5f} ({time.time()-t1:.4f}s)")
     
+    t1 = time.time()
     test_loss = trainer.eval_model(test_data)
-    print(f"Trained for {num_epochs} epochs: test_loss={test_loss:.5f}")
+    print(f"Trained for {num_epochs} epochs: test_loss={test_loss:.5f} ({time.time()-t1:.4f}s)")
     
     # run the model on a single image to visualize its reconstruction performance
     key = jax.random.PRNGKey(seed)
     img = next(iter(train_data))[0]
-    run_one_image(img, model_mae, trainer.state.params, key=key, epochs=num_epochs, dataset_name=dataset_name.upper(), model_arch=model_arch)
+    run_one_image(
+        img,
+        model_mae,
+        trainer.state.params,
+        mask_ratio=args.mask_ratio,
+        key=key,
+        epochs=num_epochs,
+        dataset_name=dataset_name.upper(),
+        model_arch=model_arch)
     
     # save the trained model
     trainer.save_model(step=num_epochs)
