@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 # test the model on N images
 N = 5
 # number of epochs for which the MAE classifier has been trained
-num_epochs = 10
+num_epochs = 50
 # set the seed for the random masking
 seed = 0
 # define the architecture for the MAE
@@ -114,9 +114,11 @@ for m_ratio in maskings:
     
 
 fig = plt.figure(figsize=(12, 8))
-plt.plot(m_ratio, train_accs, label="train loss")
-plt.plot(m_ratio, test_accs, label="test loss")
-plt.plot(m_ratio, val_accs, label="val loss")
+plt.plot(maskings, train_accs, label="train loss", marker="x")
+plt.plot(maskings, test_accs, label="test loss", marker="x")
+plt.plot(maskings, val_accs, label="val loss", marker="x")
+plt.xlabel("Masking ratio")
+plt.ylabel("Accuracy")
 plt.legend()
 fig.savefig("./figures/accs_with_mask_ratio.png", dpi=400)
 plt.close(fig)

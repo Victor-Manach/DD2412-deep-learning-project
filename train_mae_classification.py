@@ -22,7 +22,7 @@ import mae
 CHECKPOINT_PATH = "./saved_models/mae_classification/"
 
 class TrainModule:
-    def __init__(self, model, dataset_name, model_arch, length_train_data, num_epochs, mask_ratio, pretrained_encoder_vars=None, exmp_imgs=None, num_steps_per_epoch=None, train=True, seed=42):
+    def __init__(self, model, dataset_name, model_arch, length_train_data, num_epochs, mask_ratio, pretrained_encoder_vars=None, exmp_imgs=None, train=True, seed=42):
         super().__init__()
         self.seed = seed
         # Create empty model. Note: no parameters yet
@@ -34,7 +34,7 @@ class TrainModule:
         self.create_functions()
         # Initialize model
         if train:
-            self.init_model(length_train_data, pretrained_encoder_vars, exmp_imgs, num_epochs, num_steps_per_epoch)
+            self.init_model(length_train_data, pretrained_encoder_vars, exmp_imgs, num_epochs)
         else:
             self.load_model()
 

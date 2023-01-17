@@ -18,9 +18,8 @@ def get_args_parser():
                         help='Masking ratio (percentage of removed patches).')
     parser.add_argument('--seed', default=42, type=int)
     
-    parser.add_argument('--small_arch', action='store_true',
-                        help='Whether or not use the small architecture for the MAE')
-    parser.set_defaults(small_arch=True)
+    parser.add_argument('--arch', default='small', type=str,
+                        help='Architecture to use (either small or med).')
     
     parser.add_argument('--weight_decay', type=float, default=.05,
                         help='weight decay (default: 0.05)')
@@ -34,7 +33,7 @@ def main(args):
     # seed for the random numbers
     seed = args.seed
     # whether to create a MAE model with a small or medium architecture
-    small_architecture = args.small_arch
+    architecture = args.arch
     
     # define the dataset that will be used for training: split represents [test_set, validation_set, train_set]
     # the image and patch sizes vary with the dataset chosen
@@ -52,7 +51,7 @@ def main(args):
     print(f"Time to load the datasets: {time.time()-t1:.4f}s")
     
     # import the model
-    if small_architecture: # small architecture for the MAE
+    if architecture=="small": # small architecture for the MAE
         model_arch = "small_arch"
         model_mae = mae.MAEViT(img_size=img_size,
                                patch_size=patch_size,
@@ -65,7 +64,7 @@ def main(args):
                                decoder_num_heads=4,
                                mlp_ratio=2.,
                                norm_pix_loss=False)
-    else: # medium architecture for the MAE
+    elif architecture=="med": # medium architecture for the MAE
         model_arch = "med_arch"
         model_mae = mae.MAEViT(img_size=img_size,
                                patch_size=patch_size,
@@ -78,6 +77,8 @@ def main(args):
                                decoder_num_heads=4,
                                mlp_ratio=2.,
                                norm_pix_loss=False)
+    else:
+        raise ValueError("Wrong architecture passed as argument: arch can be either small or med")
     
     x_input = jnp.empty((1, 3, img_size, img_size))
     

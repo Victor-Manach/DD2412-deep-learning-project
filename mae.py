@@ -4,7 +4,7 @@ import jax
 import flax.linen as nn
 import jax.numpy as jnp
 from embeddings import PatchEmbedding, position_embedding
-from vision_transformer import Block
+from vision_transformer import Block, Mlp
 from utils import Identity
 import optax
 
@@ -199,7 +199,14 @@ class MAEClassifier(nn.Module):
     
     def setup(self):
         self.fc_norm = nn.LayerNorm() if self.use_fc_norm else Identity()
-        self.head = nn.Dense(self.num_classes, name="head", kernel_init=nn.zeros) if self.num_classes > 0 else Identity()
+        #self.head = nn.Dense(self.num_classes, name="head", kernel_init=nn.zeros) if self.num_classes > 0 else Identity()
+        self.head = Mlp(
+            in_features=128,
+            hidden_features=128,
+            out_features=self.num_classes,
+            act_layer=nn.gelu,
+            bias=True,
+            drop=0.)
     
     def __call__(self, x, mask_ratio, train, key):
         z, mask, ids_restore = self.backbone(x, mask_ratio, train, key)
@@ -211,7 +218,7 @@ class MAEClassifier(nn.Module):
             z = self.fc_norm(z)
             z = z[:, 0]
         
-        output = self.head(z)
+        output = self.head(z, train=train)
         
         return output
     

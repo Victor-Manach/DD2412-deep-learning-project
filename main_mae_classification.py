@@ -21,8 +21,11 @@ def get_args_parser():
     parser.add_argument('--seed', default=42, type=int)
     
     parser.add_argument('--small_arch', action='store_true',
-                        help='Whether or not use the small architecture for the ViT')
+                        help='Whether or not use the small architecture for the ViT.')
     parser.set_defaults(small_arch=True)
+    
+    parser.add_argument('--pretrain_ckpt', default='./saved_models/mae/cifar10/small_arch/1000_epochs/',
+                        type=str, help='Checkpoint for pretrained MAE model.')
 
     return parser
 
@@ -85,7 +88,7 @@ def main(args):
                                norm_pix_loss=False)
         
     # name of the file containing the parameters of the model to test
-    pretrain_checkpoint = f"./saved_models/mae/{dataset_name}/{model_arch}/1_epochs/"
+    pretrain_checkpoint = args.pretrain_ckpt
 
     # load the parameters of the trained MAE model
     pretrained_params = checkpoints.restore_checkpoint(ckpt_dir=pretrain_checkpoint, target=None)
@@ -108,7 +111,7 @@ def main(args):
                           seed=seed)
     
     train_losses, train_accuracies = trainer.train_model(train_data=train_data, val_data=val_data, num_epochs=num_epochs)
-    plot_train_metrics(train_losses, train_accuracies, model_name="mae")
+    plot_train_metrics(train_losses, train_accuracies, model_name="mae_cls")
     print(f"End of training phase: {time.time()-t1:.4f}s")
     
     # evaluate the model on the train and test sets
