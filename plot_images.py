@@ -67,7 +67,7 @@ def run_one_image(x, model, params, mask_ratio, key, epochs, dataset_name, model
     fig.savefig(f"./figures/{prefix}_{epochs}_{model_arch}_{suffix}.png", dpi=400)
     plt.close(fig)
 
-def plot_train_loss(train_losses, model_name="mae"):
+def plot_train_loss(train_losses, sampling_func, architecture, model_name="mae"):
     """ Given the average losses at each epoch of the training phase,
     plot the evolution of the train loss with respect to the number of epochs.
     """
@@ -77,10 +77,10 @@ def plot_train_loss(train_losses, model_name="mae"):
     #plt.title("Evolution of the train loss with respect to the number of epochs", fontsize=20)
     plt.xlabel("Epochs")
     plt.ylabel("Average loss per epoch")
-    fig.savefig(f"./figures/train_loss_{model_name}_{num_epochs}.png", dpi=400)
+    fig.savefig(f"./figures/train_loss_{model_name}_{architecture}_{sampling_func}_{num_epochs}.png", dpi=400)
     plt.close(fig)
     
-def plot_train_acc(train_accs, model_name="vit"):
+def plot_train_acc(train_accs,sampling_func, architecture, model_name="vit"):
     """ Given the average accuracies at each epoch of the training phase (of the ViT model for image classification),
     plot the evolution of the train accuracy with respect to the number of epochs.
     """
@@ -90,10 +90,10 @@ def plot_train_acc(train_accs, model_name="vit"):
     #plt.title("Evolution of the train loss with respect to the number of epochs", fontsize=20)
     plt.xlabel("Epochs")
     plt.ylabel("Average accuracy per epoch")
-    fig.savefig(f"./figures/train_acc_{model_name}_{num_epochs}.png", dpi=400)
+    fig.savefig(f"./figures/train_acc_{model_name}_{architecture}_{sampling_func}_{num_epochs}.png", dpi=400)
     plt.close(fig)
 
-def plot_train_metrics(train_loss, train_acc, model_name):
+def plot_train_metrics(train_loss, train_acc, sampling_func, architecture, model_name):
     assert len(train_acc) == len(train_loss)
     num_epochs = len(train_loss)
     fig = plt.figure(figsize=(12, 8))
@@ -101,7 +101,7 @@ def plot_train_metrics(train_loss, train_acc, model_name):
     #plt.title("Evolution of the train loss with respect to the number of epochs", fontsize=20)
     plt.xlabel("Epochs")
     plt.ylabel("Average loss per epoch")
-    fig.savefig(f"./figures/train_loss_{model_name}_{num_epochs}.png", dpi=400)
+    fig.savefig(f"./figures/train_loss_{model_name}_{architecture}_{sampling_func}_{num_epochs}.png", dpi=400)
     plt.close(fig)
     
     fig = plt.figure(figsize=(12, 8))
@@ -109,7 +109,7 @@ def plot_train_metrics(train_loss, train_acc, model_name):
     #plt.title("Evolution of the train loss with respect to the number of epochs", fontsize=20)
     plt.xlabel("Epochs")
     plt.ylabel("Average accuracy per epoch")
-    fig.savefig(f"./figures/train_acc_{model_name}_{num_epochs}.png", dpi=400)
+    fig.savefig(f"./figures/train_acc_{model_name}_{architecture}_{sampling_func}_{num_epochs}.png", dpi=400)
     plt.close(fig)
 
 def inspect_predictions(images, labels, model, params, mask_ratio, key, dataset_name, epochs, dataset="train", model_name="mae", n_rows=2, n_cols=3):

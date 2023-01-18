@@ -20,9 +20,8 @@ def get_args_parser():
 
     parser.add_argument('--seed', default=42, type=int)
     
-    parser.add_argument('--small_arch', action='store_true',
-                        help='Whether or not use the small architecture for the ViT.')
-    parser.set_defaults(small_arch=True)
+    parser.add_argument('--arch', default='small', type=str,
+                        help='Architecture to use (either small or med).')
     
     parser.add_argument('--pretrain_ckpt', default='./saved_models/mae/cifar10/small_arch/1000_epochs/',
                         type=str, help='Checkpoint for pretrained MAE model.')
@@ -36,7 +35,7 @@ def main(args):
     # seed for the random numbers
     seed = args.seed
     # whether to create a MAE model with a small or medium architecture
-    small_architecture = args.small_arch
+    architecture = args.arch
     # masking ratio to use for the MAE encoder
     mask_ratio = args.mask_ratio
     
@@ -60,7 +59,7 @@ def main(args):
     exmp_imgs, exmp_labels = exmp_inputs[0][:8], exmp_inputs[1][:8]
         
     # import the model
-    if small_architecture: # small architecture for the MAE
+    if architecture=="small": # small architecture for the MAE
         model_arch = "small_arch"
         pretrained_mae = mae.MAEViT(img_size=img_size,
                                patch_size=patch_size,
@@ -73,7 +72,7 @@ def main(args):
                                decoder_num_heads=4,
                                mlp_ratio=2.,
                                norm_pix_loss=False)
-    else: # medium architecture for the MAE
+    elif architecture=="med": # medium architecture for the MAE
         model_arch = "med_arch"
         pretrained_mae = mae.MAEViT(img_size=img_size,
                                patch_size=patch_size,
@@ -86,6 +85,8 @@ def main(args):
                                decoder_num_heads=4,
                                mlp_ratio=2.,
                                norm_pix_loss=False)
+    else:
+        raise ValueError("Wrong architecture passed as argument: arch can be either small or med")
         
     # name of the file containing the parameters of the model to test
     pretrain_checkpoint = args.pretrain_ckpt

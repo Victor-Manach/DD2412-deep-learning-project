@@ -21,7 +21,17 @@ from mae import mae_loss, mae_norm_pix_loss
 CHECKPOINT_PATH = "./saved_models/mae/"
 
 class TrainModule:
-    def __init__(self, model, length_train_data, exmp_imgs, dataset_name, model_arch, num_epochs, weight_decay, mask_ratio, seed=42):
+    def __init__(self,
+                 model,
+                 length_train_data,
+                 exmp_imgs,
+                 dataset_name,
+                 model_arch,
+                 sampling_func,
+                 num_epochs,
+                 weight_decay,
+                 mask_ratio,
+                 seed=42):
         super().__init__()
         self.seed = seed
         self.num_epochs = num_epochs
@@ -30,7 +40,7 @@ class TrainModule:
         self.model = model
         # Prepare logging
         self.exmp_imgs = exmp_imgs
-        self.log_dir = os.path.join(CHECKPOINT_PATH, dataset_name, model_arch, f"{num_epochs}_epochs")
+        self.log_dir = os.path.join(CHECKPOINT_PATH, dataset_name, model_arch, f"{sampling_func}_sampling", f"{num_epochs}_epochs")
         self.dataset_name = dataset_name
         # Create jitted training and eval functions
         self.create_functions()

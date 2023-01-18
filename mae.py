@@ -9,13 +9,14 @@ from utils import Identity
 import optax
 
 class MAEEncoder(nn.Module):
-    img_size : int = 224
-    patch_size : int = 16
-    nb_channels : int = 3
-    embed_dim : int = 1024
-    encoder_depth : int = 24
-    encoder_num_heads : int = 16
-    mlp_ratio : float = 4.
+    img_size: int = 224
+    patch_size: int = 16
+    nb_channels: int = 3
+    embed_dim: int = 1024
+    encoder_depth: int = 24
+    encoder_num_heads: int = 16
+    mlp_ratio: float = 4.
+    masking_func: str = "random"
     
     def setup(self):
         
@@ -45,6 +46,13 @@ class MAEEncoder(nn.Module):
             for i in range(self.encoder_depth)
             ]
         self.encoder_norm_layer = nn.LayerNorm()
+        
+        if self.masking_func == "random":
+            self.masking = random_masking
+        elif self.masking_func == "grid":
+            self.masking = grid_masking
+        else:
+            raise ValueError("Wrong masking function: should be either random or grid.")
     
     def __call__(self, x, mask_ratio, train, key):
         """ Encoder part of the MAE, that contains the creation of the patches + random masking
@@ -54,7 +62,9 @@ class MAEEncoder(nn.Module):
         x += self.position_embedding[:, 1:, :]
         
         keys = jax.random.split(key, x.shape[0])
-        x, mask, ids_restore = random_masking(x, mask_ratio, keys)
+        #x, mask, ids_restore = random_masking(x, mask_ratio, keys)
+        #x, mask, ids_restore = grid_masking(x, mask_ratio, keys)
+        x, mask, ids_restore = self.masking(x, mask_ratio, keys)
         
         cls_token = self.cls_token + self.position_embedding[:, :1, :]
         cls_tokens = jnp.tile(cls_token, (x.shape[0], 1, 1))
@@ -135,17 +145,18 @@ class MAEDecoder(nn.Module):
         return module, variables
 
 class MAEViT(nn.Module):
-    img_size : int = 224
-    patch_size : int = 16
-    nb_channels : int = 3
-    embed_dim : int = 1024
-    encoder_depth : int = 24
-    encoder_num_heads : int = 16
-    decoder_embed_dim : int = 512
-    decoder_depth : int = 8
-    decoder_num_heads : int = 16
-    mlp_ratio : float = 4.
-    norm_pix_loss : bool = False
+    img_size: int = 224
+    patch_size: int = 16
+    nb_channels: int = 3
+    embed_dim: int = 1024
+    encoder_depth: int = 24
+    encoder_num_heads: int = 16
+    decoder_embed_dim: int = 512
+    decoder_depth: int = 8
+    decoder_num_heads: int = 16
+    mlp_ratio: float = 4.
+    norm_pix_loss: bool = False
+    masking_func: str = "random"
     
     def setup(self):
         """ Setup the layers for the MAE and compute the positional embedding for the patches
@@ -160,7 +171,8 @@ class MAEViT(nn.Module):
             embed_dim=self.embed_dim,
             encoder_depth=self.encoder_depth,
             encoder_num_heads=self.encoder_num_heads,
-            mlp_ratio=self.mlp_ratio
+            mlp_ratio=self.mlp_ratio,
+            masking_func=self.masking_func
         )
         
         # DECODER
@@ -277,6 +289,33 @@ def random_masking(x, mask_ratio, key):
     # generate the binary mask: 0 is keep, 1 is remove
     mask = jnp.ones(L)
     mask = mask.at[:keep].set(0.)
+    mask = mask[ids_restore]
+    
+    return x_masked, mask, ids_restore
+
+@partial(jax.jit, static_argnames="mask_ratio")
+@partial(jax.vmap, in_axes=(0, None, 0), out_axes=0)
+def grid_masking(x, mask_ratio, key):
+    """ Perform a random masking on the embeddings of the patches
+    """
+    assert mask_ratio == .5 or mask_ratio == .75
+    L, D = x.shape
+    
+    nb_patches = int(L**(1/2)) # number of patches on one line of the image
+    keep = int(1/(1-mask_ratio))//2
+    
+    # shuffle indices
+    ids_restore = jnp.arange(0, L)
+    even_rows = [i for i in range(0, nb_patches, 2)]
+    ids_keep = jnp.array([
+        [i for i in range(row*nb_patches, (row+1) * nb_patches, keep)] for row in even_rows
+        ]).flatten()
+    
+    x_masked = x[ids_keep, :]
+    
+    # generate the binary mask: 0 is keep, 1 is remove
+    mask = jnp.ones(L)
+    mask = mask.at[ids_keep].set(0.)
     mask = mask[ids_restore]
     
     return x_masked, mask, ids_restore

@@ -16,6 +16,9 @@ def get_args_parser():
 
     parser.add_argument('--mask_ratio', default=.75, type=float,
                         help='Masking ratio (percentage of removed patches).')
+    parser.add_argument('--mask_func', default="random", type=str,
+                        help='Masking function (random or grid).')
+    
     parser.add_argument('--seed', default=42, type=int)
     
     parser.add_argument('--arch', default='small', type=str,
@@ -34,6 +37,8 @@ def main(args):
     seed = args.seed
     # whether to create a MAE model with a small or medium architecture
     architecture = args.arch
+    # whether to use random or grid masking
+    sampling_func = args.mask_func
     
     # define the dataset that will be used for training: split represents [test_set, validation_set, train_set]
     # the image and patch sizes vary with the dataset chosen
@@ -63,7 +68,8 @@ def main(args):
                                decoder_depth=1,
                                decoder_num_heads=4,
                                mlp_ratio=2.,
-                               norm_pix_loss=False)
+                               norm_pix_loss=False,
+                               masking_func=sampling_func)
     elif architecture=="med": # medium architecture for the MAE
         model_arch = "med_arch"
         model_mae = mae.MAEViT(img_size=img_size,
@@ -76,7 +82,8 @@ def main(args):
                                decoder_depth=2,
                                decoder_num_heads=4,
                                mlp_ratio=2.,
-                               norm_pix_loss=False)
+                               norm_pix_loss=False,
+                               masking_func=sampling_func)
     else:
         raise ValueError("Wrong architecture passed as argument: arch can be either small or med")
     
@@ -91,12 +98,13 @@ def main(args):
         exmp_imgs=x_input,
         dataset_name=dataset_name,
         model_arch=model_arch,
+        sampling_func=sampling_func,
         num_epochs=num_epochs,
         weight_decay=args.weight_decay,
         mask_ratio=args.mask_ratio,
         seed=seed)
     train_losses = trainer.train_model(train_data=train_data)
-    plot_train_loss(train_losses)
+    plot_train_loss(train_losses, sampling_func=sampling_func, architecture=model_arch)
     print(f"End of training phase: {time.time()-t1:.4f}s")
     
     # evaluate the model on the train and test sets
