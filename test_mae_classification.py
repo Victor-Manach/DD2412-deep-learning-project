@@ -16,7 +16,7 @@ num_epochs = 50
 # set the seed for the random masking
 seed = 0
 # define the architecture for the MAE
-small_architecture = True
+small_architecture = False
 # define the batch_size
 batch_size = 64
 
@@ -87,7 +87,7 @@ mae_classifier = mae.MAEClassifier(
     )
 
 # name of the file containing the parameters of the model to test
-filename = f"./saved_models/mae_classification/{dataset_name}/{model_arch}/{num_epochs}_epochs/"
+filename = f"./saved_models/mae_classification/{dataset_name}/{model_arch}/random_sampling/{num_epochs}_epochs/"
 
 params = checkpoints.restore_checkpoint(ckpt_dir=filename, target=None)
 
@@ -95,7 +95,7 @@ key = jax.random.PRNGKey(seed)
 maskings = np.arange(.1, 1., .1)
 train_accs, test_accs, val_accs = [], [], []
 
-print("Starting evaluation of MAE classifier for different masking ratios")
+print(f"Starting evaluation of MAE classifier for different masking ratios ({model_arch})")
 for m_ratio in maskings:
     print(f"For masking_ratio={m_ratio:.1f}:")
     rng1, rng2, rng3 = jax.random.split(key, 3)
@@ -120,5 +120,5 @@ plt.plot(maskings, val_accs, label="val loss", marker="x")
 plt.xlabel("Masking ratio")
 plt.ylabel("Accuracy")
 plt.legend()
-fig.savefig("./figures/accs_with_mask_ratio.png", dpi=400)
+fig.savefig(f"./figures/accs_with_mask_ratio_{model_arch}.png", dpi=400)
 plt.close(fig)

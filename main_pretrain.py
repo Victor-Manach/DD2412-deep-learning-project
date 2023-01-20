@@ -127,7 +127,8 @@ def main(args):
         key=key,
         epochs=num_epochs,
         dataset_name=dataset_name.upper(),
-        model_arch=model_arch)
+        model_arch=model_arch,
+        sampling_func=sampling_func)
     
     # save the trained model
     trainer.save_model(step=num_epochs)

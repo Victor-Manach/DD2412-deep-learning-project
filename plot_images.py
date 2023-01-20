@@ -16,7 +16,7 @@ def show_image(image, title=''):
     plt.axis('off')
     return
 
-def run_one_image(x, model, params, mask_ratio, key, epochs, dataset_name, model_arch, prefix="mae", suffix="0"):
+def run_one_image(x, model, params, mask_ratio, key, epochs, dataset_name, model_arch, sampling_func, prefix="mae", suffix="0"):
     """ Run the model on a single image, plot the original image vs. the reconstructed image
     and compute the loss for the given image. Save the results to a .png file.
     """
@@ -64,7 +64,7 @@ def run_one_image(x, model, params, mask_ratio, key, epochs, dataset_name, model
     show_image(im_paste[0], "reconstruction + visible")
 
     #plt.show()
-    fig.savefig(f"./figures/{prefix}_{epochs}_{model_arch}_{suffix}.png", dpi=400)
+    fig.savefig(f"./figures/{prefix}_{epochs}_{model_arch}_{sampling_func}_{suffix}.png", dpi=400)
     plt.close(fig)
 
 def plot_train_loss(train_losses, sampling_func, architecture, model_name="mae"):
@@ -112,7 +112,7 @@ def plot_train_metrics(train_loss, train_acc, sampling_func, architecture, model
     fig.savefig(f"./figures/train_acc_{model_name}_{architecture}_{sampling_func}_{num_epochs}.png", dpi=400)
     plt.close(fig)
 
-def inspect_predictions(images, labels, model, params, mask_ratio, key, dataset_name, epochs, dataset="train", model_name="mae", n_rows=2, n_cols=3):
+def inspect_predictions(images, labels, model, params, mask_ratio, key, dataset_name, epochs, architecture, sampling_func, dataset="train", model_name="mae", n_rows=2, n_cols=3):
     assert len(images) == len(labels) == n_rows * n_cols
     
     fig = plt.figure(figsize=(24, 24))
@@ -136,5 +136,5 @@ def inspect_predictions(images, labels, model, params, mask_ratio, key, dataset_
         plt.title(f"Actual: {cifar_10_class_names[label]} \nPrediction: {cifar_10_class_names[pred]}", fontsize=26, color=colour)
     
     plt.suptitle(f"Images from the {dataset_name} {dataset} dataset", fontsize=30)
-    plt.savefig(f"./figures/predictions_{model_name}{epochs}_{dataset}.png", dpi=400)
+    plt.savefig(f"./figures/predictions_{model_name}{epochs}_{architecture}_{sampling_func}_{dataset}.png", dpi=400)
     plt.close()
