@@ -4,11 +4,7 @@ This project was carried out within the framework of the course DD2412 Advanced 
 
 The necessary libraries to run the code are `Jax`, `Flax` and `Tensorflow-datasets`.
 
-To run the training phase, use `python main.py`. The model is saved directly after the training.
-When the training is complete, the model is ran once on the entire train and test sets and the average loss is returned.
-Finally, the model is ran over one image and the results are plotted and save to a .png file.
-
-To run a pretrained model, use `python test_mae.py`. The script loads a pre-trained model and runs it on N images from the train set and then on N images from the test. All the results are plot and saved to .png files.
+The `main_pretrain.py` file can be used to run the pretraining of the model and save that model at the end. Then, the `main_mae_classification.py` file can be used to start the fine-tuning of a pre-trained MAE model. Finally, the files `test_mae.py` (resp. `test_mae_classification.py`) can be used to run a pre-trained model (resp. fine-tuned model) on a set of images from the train and test sets.
 
 Project members:
 <ul>
